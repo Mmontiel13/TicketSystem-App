@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Users,
   ShoppingCart,
@@ -274,16 +275,48 @@ function TeamModal({
 }: {
   initial?: Team;
   onClose: () => void;
-  onSave: (name: string, iconId: IconId) => void;
+  onSave: () => Promise<void>;
 }) {
   const [teamName, setTeamName] = useState(initial?.area ?? "");
   const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "Users");
+  const [isSaving, setIsSaving] = useState(false);
+  const supabase = createClient();
   const isEdit = !!initial;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!teamName.trim()) return;
-    onSave(teamName.trim(), selectedIcon);
-    onClose();
+
+    setIsSaving(true);
+    try {
+      if (isEdit && initial?.id != null) {
+        const { error } = await supabase
+          .from("teams")
+          .update({ name: `Equipo de ${teamName}`, icon_id: selectedIcon })
+          .eq("id", initial.id)
+          .eq("is_active", true);
+
+        if (error) {
+          console.error("Error al actualizar el equipo", error);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from("teams")
+          .insert([{ name: `Equipo de ${teamName}`, icon_id: selectedIcon, is_active: true }]);
+
+        if (error) {
+          console.error("Error al crear el equipo", error);
+          return;
+        }
+      }
+
+      await onSave();
+      onClose();
+    } catch (error) {
+      console.error("Error en al guardar el equipo", error);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -344,9 +377,10 @@ function TeamModal({
           onClick={handleSubmit}
           className={cn(primaryButtonClass, "mt-5 w-full")}
           type="button"
+          disabled={isSaving}
         >
           <Plus size={14} />
-          {isEdit ? "Guardar cambios" : "Agregar"}
+          {isSaving ? (isEdit ? "Guardando cambios..." : "Agregando...") : isEdit ? "Guardar cambios" : "Agregar"}
         </motion.button>
       </motion.div>
     </>
@@ -495,7 +529,6 @@ function TeamCard({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className={cn(
@@ -579,7 +612,6 @@ function TeamDetailPane({
                   </div>
                   <div>
                     <p className="text-foreground text-sm">{m.name}</p>
-                    <p className="text-muted-foreground text-xs">{m.email}</p>
                   </div>
                 </div>
                 {isAdmin && (
@@ -631,8 +663,51 @@ function TeamDetailPane({
 export function EquiposView() {
   const { user, addUser, deactivateUser } = useUser();
   const isAdmin = user.role === "admin";
+  const supabase = createClient();
 
-  const [teams, setTeams] = useState<Team[]>(INITIAL_TEAMS);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [activeTeamId, setActiveTeamId] = useState<number | null>(null);
+  const [showAddTeam, setShowAddTeam] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+
+  const refreshTeams = async () => {
+    setIsLoadingTeams(true);
+    try {
+      const { data, error } = await supabase
+        .from("teams")
+        .select("id, name, icon_id")
+        .eq("is_active", true);
+
+      if (error) {
+        console.error("Error al obtener equipos", error);
+        return;
+      }
+
+      if (data) {
+        const normalized = data.map((team) => ({
+          id: team.id,
+          name: team.name ?? "",
+          area: team.name ?? "",
+          iconId: (team.icon_id as IconId) || "Users",
+          members: [],
+        }));
+
+        setTeams(normalized);
+        if (!activeTeamId && normalized.length > 0) {
+          setActiveTeamId(normalized[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Error al refrescar equipos", error);
+    } finally {
+      setIsLoadingTeams(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshTeams();
+  }, [supabase]);
 
   if (!isAdmin) {
     return (
@@ -646,32 +721,17 @@ export function EquiposView() {
       </div>
     );
   }
-  const [activeTeamId, setActiveTeamId] = useState<number>(2);
-  const [showAddTeam, setShowAddTeam] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
-  const activeTeam = teams.find((t) => t.id === activeTeamId) ?? teams[0];
-
-  function handleSaveTeam(name: string, iconId: IconId) {
-    if (editingTeam) {
-      setTeams((prev) =>
-        prev.map((t) =>
-          t.id === editingTeam.id ? { ...t, area: name, name: `Equipo de ${name}`, iconId } : t
-        )
-      );
-      setEditingTeam(null);
-    } else {
-      const newTeam: Team = {
-        id: Date.now(),
-        name: `Equipo de ${name}`,
-        area: name,
-        iconId,
-        members: [],
-      };
-      setTeams((prev) => [...prev, newTeam]);
-      setActiveTeamId(newTeam.id);
-    }
-  }
+  const activeTeam =
+    teams.find((t) => t.id === activeTeamId) ??
+    teams[0] ??
+    ({
+      id: 0,
+      name: "Sin equipo",
+      area: "",
+      iconId: "Users" as IconId,
+      members: [],
+    } as Team);
 
   function handleMemberAdded(teamId: number, memberName: string, memberEmail: string, memberIcon: IconUserId) {
     const generatedPassword = generateRandomPassword();
@@ -751,8 +811,11 @@ export function EquiposView() {
         )}
       </header>
 
-      <div className="flex flex-1 gap-4 p-4 md:p-6 overflow-hidden">
-        {/* Left: team list */}
+      {isLoadingTeams ? (
+        <div className="flex flex-1 items-center justify-center text-muted-foreground">Cargando equipos...</div>
+      ) : (
+        <div className="flex flex-1 gap-4 p-4 md:p-6 overflow-hidden">
+          {/* Left: team list */}
         <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
           {teams.map((team) => (
             <TeamCard
@@ -775,6 +838,7 @@ export function EquiposView() {
           />
         </div>
       </div>
+      )}
 
       <AnimatePresence>
         {(showAddTeam || editingTeam) && (
@@ -784,7 +848,7 @@ export function EquiposView() {
               setShowAddTeam(false);
               setEditingTeam(null);
             }}
-            onSave={handleSaveTeam}
+            onSave={refreshTeams}
           />
         )}
       </AnimatePresence>
