@@ -65,6 +65,78 @@ function isExpiredAt(ticket: Ticket, nowMs: number): boolean {
   return elapsed >= ticket.max_wait_minutes * 60 * 1000;
 }
 
+/* ─── Status dropdown for mobile ────────────────────────────────────────────── */
+
+function StatusDropdown({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Ticket["status"];
+  onChange: (v: Ticket["status"]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const OPTIONS: Ticket["status"][] = [
+    "Pendiente",
+    "En proceso",
+    "Terminada",
+  ];
+
+  return (
+    <div className="relative">
+      <button
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors min-w-[120px]",
+          "border-zinc-300 bg-white text-zinc-900",
+          "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-foreground",
+          "hover:border-zinc-500 dark:hover:border-zinc-400",
+          disabled && "opacity-60 cursor-not-allowed"
+        )}
+      >
+        {value}
+        <ChevronDown size={12} />
+      </button>
+
+      <AnimatePresence>
+        {open && !disabled && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 mt-1 w-full rounded-xl border border-border bg-popover z-30 overflow-hidden"
+          >
+            {OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
+                  value === opt
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {opt}
+                {value === opt && (
+                  <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /* ─── Sortable table row ─────────────────────────────────────────────────────── */
 
 function SortableRow({
@@ -134,7 +206,7 @@ function SortableRow({
         />
       </td>
 
-      <td className="px-3 py-3 max-w-[220px]">
+      <td className="px-3 py-3 max-w-55">
         <button
           onClick={onToggleExpand}
           className="text-left w-full"
@@ -175,24 +247,11 @@ function SortableRow({
 
       <td className="px-3 py-3">
         {isAdmin ? (
-          <select
-            aria-label={`Estado de ${ticket.id}`}
+          <StatusDropdown
             value={ticket.status}
-            onChange={(e) => onStatusChange(e.target.value as Ticket['status'])}
-            className={cn(
-              "appearance-none min-w-[120px] rounded-md border p-1 px-2 text-xs font-medium transition-colors",
-              "border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500",
-              "focus-visible:border-primary focus-visible:ring-primary/40 focus-visible:outline-none focus-visible:ring-1",
-              "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-white",
-              "hover:border-zinc-500 dark:hover:border-zinc-400",
-              expired ? "opacity-60 cursor-not-allowed" : ""
-            )}
+            onChange={onStatusChange}
             disabled={expired}
-          >
-            <option value="Pendiente">Pendiente</option>
-            <option value="En proceso">En proceso</option>
-            <option value="Terminada">Terminada</option>
-          </select>
+          />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
@@ -274,28 +333,17 @@ function MobileTicketCard({
 
       <div className="flex items-center gap-3 flex-wrap">
         <TypeIcon type={ticket.type} />
+
         {isAdmin ? (
-          <select
-            aria-label={`Estado de ${ticket.id}`}
+          <StatusDropdown
             value={ticket.status}
-            onChange={(e) => onStatusChange(e.target.value as Ticket['status'])}
-            className={cn(
-              "appearance-none min-w-[120px] rounded-md border p-1 px-2 text-xs font-medium transition-colors",
-              "border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500",
-              "focus-visible:border-primary focus-visible:ring-primary/40 focus-visible:outline-none focus-visible:ring-1",
-              "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-white",
-              "hover:border-zinc-500 dark:hover:border-zinc-400",
-              expired ? "opacity-60 cursor-not-allowed" : ""
-            )}
+            onChange={onStatusChange}
             disabled={expired}
-          >
-            <option value="Pendiente">Pendiente</option>
-            <option value="En proceso">En proceso</option>
-            <option value="Terminada">Terminada</option>
-          </select>
+          />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
+
         <span className="text-zinc-500 text-xs tabular-nums">
           <ClientTime iso={ticket.arrival_time} />
         </span>
@@ -487,7 +535,7 @@ export function TicketsView() {
               }}
               className={cn(
                 "px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors",
-                tab === t ? "bg-zinc-700 text-white" : "text-muted-foreground hover:text-white",
+                tab === t ? "bg-zinc-700 text-white dark:bg-zinc-700 dark:text-white" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
               {t}
@@ -512,12 +560,7 @@ export function TicketsView() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-1 w-44 rounded-xl border border-zinc-700/60 z-30 overflow-hidden"
-                style={{
-                  background: "rgba(24,24,27,0.90)",
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                }}
+                className="absolute right-0 mt-1 w-44 rounded-xl border border-border bg-popover z-30 overflow-hidden"
               >
                 <div className="px-3 py-2 flex items-center justify-between border-b border-border">
                   <ChevronDown size={12} className="text-muted-foreground" />
@@ -534,12 +577,12 @@ export function TicketsView() {
                     }}
                     className={cn(
                       "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
-                      sortKey === k ? "text-white" : "text-muted-foreground hover:text-white",
+                      sortKey === k ? "text-foreground " : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {SORT_LABELS[k]}
                     {sortKey === k && (
-                      <span className="w-1 h-4 rounded-full bg-white inline-block" />
+                      <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
                     )}
                   </button>
                 ))}
