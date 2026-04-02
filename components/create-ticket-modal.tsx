@@ -11,8 +11,6 @@ const TICKET_TYPES = [
   { id: "otro", label: "Otro", icon: HelpCircle },
 ] as const;
 
-const MEMBERS = ["Integrante 1", "Integrante 2", "Integrante 3"];
-
 const WAIT_STEPS = [
   { label: "10mins", value: 10 },
   { label: "30mins", value: 30 },
@@ -26,23 +24,27 @@ interface CreateTicketModalProps {
   onAdd: (ticket: {
     description: string;
     type: string;
-    members: string[];
+    assignedMemberIds: number[];
     allArea: boolean;
     maxWaitMinutes: number;
   }) => void;
+  members: { id: number; full_name: string }[];
 }
+
 
 export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalProps) {
   const [description, setDescription] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [allArea, setAllArea] = useState(false);
   const [waitIndex, setWaitIndex] = useState(1); // default 30mins
 
   if (!open) return null;
 
-  const toggleMember = (m: string) => {
-    setSelectedMembers((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  const toggleMember = (m: number) => {
+    setSelectedMembers((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
+    );
   };
 
   const handleAdd = () => {
@@ -50,7 +52,7 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
     onAdd({
       description,
       type: selectedType,
-      members: allArea ? MEMBERS : selectedMembers,
+      assignedMemberIds: allArea ? members.map((m) => m.id) : selectedMembers,
       allArea,
       maxWaitMinutes: WAIT_STEPS[waitIndex].value,
     });
@@ -151,22 +153,26 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
           </div>
 
           <p className="text-xs text-muted-foreground mb-2">Integrantes:</p>
-          <div className="flex flex-col gap-2">
-            {MEMBERS.map((m) => (
-              <label key={m} className="flex items-center justify-between cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <UserCircle size={24} className="text-muted-foreground" />
-                  <span className="text-sm text-foreground">{m}</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={allArea || selectedMembers.includes(m)}
-                  disabled={allArea}
-                  onChange={() => toggleMember(m)}
-                  className="accent-[color:var(--color-primary)]"
-                />
-              </label>
-            ))}
+          <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+            {members.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No hay integrantes en el área.</p>
+            ) : (
+              members.map((m) => (
+                <label key={m.id} className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <UserCircle size={24} className="text-muted-foreground" />
+                    <span className="text-sm text-foreground">{m.full_name}</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={allArea || selectedMembers.includes(m.id)}
+                    disabled={allArea}
+                    onChange={() => toggleMember(m.id)}
+                    className="accent-[color:var(--color-primary)]"
+                  />
+                </label>
+              ))
+            )}
           </div>
         </div>
 

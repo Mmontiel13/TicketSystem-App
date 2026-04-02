@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/client";
 import {
   DndContext,
   PointerSensor,
@@ -29,7 +30,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { MOCK_TICKETS, type Ticket } from "@/lib/mock-tickets";
 import {
   RemainingBar,
   PriorityBadge,
@@ -57,6 +57,40 @@ function ClientTime({ iso }: { iso: string }) {
 
 type Tab = "Todos" | "Pendientes" | "Completados";
 type SortKey = "default" | "prioridad" | "llegada";
+
+type TicketType = "computo" | "impresora" | "red" | "otro";
+type TicketStatus = "Pendiente" | "En proceso" | "Terminada";
+type TicketPriority = "Alta" | "Media" | "Baja" | "Vencido";
+
+interface Ticket {
+  id: string;
+  dbId: number;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  arrival_time: string;
+  max_wait_minutes: number;
+  area: string;
+  usuario: string;
+  user_id: number;
+  team_id: number;
+}
+
+interface DbTicketRow {
+  id: number;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  arrival_time: string;
+  max_wait_minutes: number;
+  team_id: number;
+  user_id: number;
+  is_active?: boolean;
+  users?: { full_name: string };
+  teams?: { name: string };
+}
 
 const PRIORITY_ORDER: Record<string, number> = { Alta: 0, Media: 1, Baja: 2 };
 
@@ -148,6 +182,8 @@ function SortableRow({
   isExpanded,
   onToggleExpand,
   onStatusChange,
+  onDelete,
+  myUserId,
 }: {
   ticket: Ticket;
   selected: boolean;
@@ -157,6 +193,8 @@ function SortableRow({
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (status: Ticket['status']) => void;
+  onDelete: (ticket: Ticket) => void;
+  myUserId: number | null;
 }) {
   const {
     attributes,
@@ -170,7 +208,7 @@ function SortableRow({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.4 : 0.8,
   };
 
   const expired = isExpiredAt(ticket, nowMs);
@@ -188,7 +226,7 @@ function SortableRow({
       animate={{ opacity: isDragging ? 0.4 : 1 }}
       className={cn(
         "border-b border-border/60 transition-colors",
-        selected ? "bg-zinc-800/40" : "hover:bg-accent/50",
+        selected ? "bg-zinc-1000/40" : "hover:bg-accent/50",
       )}
       {...attributes}
     >
@@ -274,6 +312,18 @@ function SortableRow({
           {ticket.usuario}
         </span>
       </td>
+
+      <td className="px-3 py-3">
+        {(isAdmin || ticket.user_id === myUserId) && (
+          <button
+            type="button"
+            onClick={() => onDelete(ticket)}
+            className="text-xs text-rose-600 hover:text-rose-800"
+          >
+            Eliminar
+          </button>
+        )}
+      </td>
     </motion.tr>
   );
 }
@@ -287,6 +337,8 @@ function MobileTicketCard({
   isExpanded,
   onToggleExpand,
   onStatusChange,
+  onDelete,
+  myUserId,
 }: {
   ticket: Ticket;
   nowMs: number;
@@ -294,6 +346,8 @@ function MobileTicketCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (status: Ticket['status']) => void;
+  onDelete: (ticket: Ticket) => void;
+  myUserId: number | null;
 }) {
   const expired = isExpiredAt(ticket, nowMs);
   const truncated = ticket.description.length > 80;
@@ -365,6 +419,16 @@ function MobileTicketCard({
           {ticket.usuario}
         </span>
       </div>
+
+      {(isAdmin || ticket.user_id === myUserId) && (
+        <button
+          type="button"
+          onClick={() => onDelete(ticket)}
+          className="text-xs text-rose-600 hover:text-rose-800"
+        >
+          Eliminar
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -375,16 +439,21 @@ export function TicketsView() {
   const { user } = useUser();
   const { toast } = useToast();
   const isAdmin = user.role === "admin";
+  const supabase = createClient();
 
   const [tab, setTab] = useState<Tab>("Todos");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortOpen, setSortOpen] = useState(false);
-  const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [nowMs, setNowMs] = useState(0);
+  const [myUserId, setMyUserId] = useState<number | null>(null);
+  const [myTeamId, setMyTeamId] = useState<number | null>(null);
+  const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // IMPORTANT: avoid dnd-kit SSR hydration mismatches (aria-describedby IDs)
   const [mounted, setMounted] = useState(false);
@@ -462,42 +531,235 @@ export function TicketsView() {
     });
   }
 
-  const handleStatusChange = (ticketId: string, nextStatus: Ticket['status']) => {
-    setTickets((prev) =>
-      prev.map((t) => {
-        if (t.id !== ticketId) return t;
+  async function fetchAreaMembers(teamId: number | null) {
+    if (!teamId) {
+      setAreaMembers([]);
+      return;
+    }
 
-        const expired = isExpiredAt(t, nowMs);
-        if (expired && nextStatus === 'En proceso') {
-          toast({
-            title: 'No se puede avanzar',
-            description: 'Este ticket ya ha vencido y no puede pasar a En proceso.',
-          });
-          return t;
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .eq("team_id", teamId)
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("Error fetching team members", error);
+      setAreaMembers([]);
+      return;
+    }
+
+    setAreaMembers(data ?? []);
+  }
+
+  async function fetchTickets(teamId: number | null, isAdminUser: boolean) {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from<DbTicketRow>("tickets")
+        .select("*, users(full_name), teams(name)")
+        .eq("is_active", true)
+        .order("arrival_time", { ascending: false });
+
+      if (!isAdminUser) {
+        if (teamId) {
+          query = query.eq("team_id", teamId);
+        } else {
+          query = query.eq("team_id", -1);
         }
+      }
 
-        return { ...t, status: nextStatus };
-      }),
+      const { data, error } = await query;
+      if (error) {
+        console.error("Error fetching tickets", error);
+        setTickets([]);
+        return;
+      }
+
+      const mapped = (data ?? []).map((row) => ({
+        id: `TK-${String(row.id).padStart(3, "0")}`,
+        dbId: row.id,
+        description: row.description,
+        type: row.type,
+        priority: row.priority,
+        status: row.status,
+        arrival_time: row.arrival_time,
+        max_wait_minutes: row.max_wait_minutes,
+        area: row.teams?.name ?? "",
+        usuario: row.users?.full_name ?? "",
+        user_id: row.user_id,
+        team_id: row.team_id,
+      } as Ticket));
+
+      setTickets(mapped);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCurrentUserAndTickets() {
+    setLoading(true);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      let resolvedUserId = user.id;
+      let resolvedRole = user.role;
+      let resolvedTeamId = myTeamId;
+
+      if (authError) {
+        console.warn("No auth session, using context user", authError);
+      }
+
+      const email = authData?.data?.user?.email ?? user.email;
+      if (email) {
+        const { data: userRow, error: userError } = await supabase
+          .from("users")
+          .select("id, team_id, role")
+          .eq("email", email)
+          .single();
+
+        if (userError) {
+          console.warn("Could not resolve supabase user by email", userError);
+        } else if (userRow) {
+          resolvedUserId = Number(userRow.id);
+          resolvedTeamId = Number(userRow.team_id);
+          resolvedRole = (userRow.role as "admin" | "user") ?? resolvedRole;
+        }
+      }
+
+      setMyUserId(resolvedUserId);
+      setMyTeamId(resolvedTeamId);
+
+      await fetchAreaMembers(resolvedTeamId);
+      await fetchTickets(resolvedTeamId, resolvedRole === "admin");
+    } catch (e) {
+      console.error("Error loading tickets", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCurrentUserAndTickets();
+  }, [user.role]);
+
+  const handleStatusChange = async (ticketId: string, nextStatus: Ticket["status"]) => {
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+
+    const expired = isExpiredAt(ticket, nowMs);
+    if (expired && nextStatus === "En proceso") {
+      toast({
+        title: "No se puede avanzar",
+        description: "Este ticket ya ha vencido y no puede pasar a En proceso.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status: nextStatus })
+      .eq("id", ticket.dbId);
+
+    if (error) {
+      toast({
+        title: "Error actualizando estado",
+        description: "No se pudo actualizar el estado del ticket.",
+      });
+      console.error(error);
+      return;
+    }
+
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)),
     );
   };
 
-  const handleAddTicket = (data: {
+  const handleAddTicket = async (data: {
     description: string;
-    type: string;
+    type: TicketType;
+    assignedMemberIds: number[];
+    allArea: boolean;
     maxWaitMinutes: number;
   }) => {
-    const newTicket: Ticket = {
-      id: `TK-${String(tickets.length + 1).padStart(3, "0")}`,
-      description: data.description,
-      type: data.type as Ticket["type"],
-      priority: "Media",
-      status: "Pendiente",
-      arrival_time: new Date().toISOString(),
-      max_wait_minutes: data.maxWaitMinutes,
-      area: "Progra",
-      usuario: "Usuario",
-    };
-    setTickets((prev) => [newTicket, ...prev]);
+    if (!myUserId || !myTeamId) {
+      toast({
+        title: "Usuario no identificado",
+        description: "No se pudo determinar usuario/área para crear ticket.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const arrivalTime = new Date().toISOString();
+
+    try {
+      const { data: inserted, error } = await supabase
+        .from("tickets")
+        .insert([
+          {
+            description: data.description,
+            type: data.type,
+            priority: "Media",
+            status: "Pendiente",
+            arrival_time: arrivalTime,
+            max_wait_minutes: data.maxWaitMinutes,
+            user_id: myUserId,
+            team_id: myTeamId,
+            is_active: true,
+          },
+        ])
+        .select("*")
+        .single();
+
+      if (error || !inserted) {
+        toast({
+          title: "Error al crear ticket",
+          description: "No se pudo guardar el ticket.",
+        });
+        console.error(error);
+        return;
+      }
+
+      toast({
+        title: "Ticket creado",
+        description: "El ticket fue generado correctamente.",
+      });
+
+      await fetchTickets(myTeamId, isAdmin);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTicket = async (ticket: Ticket) => {
+    if (!isAdmin && ticket.user_id !== myUserId) {
+      toast({
+        title: "No autorizado",
+        description: "No tienes permiso para eliminar este ticket.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({ is_active: false })
+      .eq("id", ticket.dbId);
+
+    if (error) {
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el ticket.",
+      });
+      console.error(error);
+      return;
+    }
+
+    setTickets((prev) => prev.filter((t) => t.dbId !== ticket.dbId));
+    toast({
+      title: "Ticket eliminado",
+      description: "Ticket eliminado correctamente.",
+    });
   };
 
   const SORT_LABELS: Record<SortKey, string> = {
@@ -688,6 +950,8 @@ export function TicketsView() {
                             })
                           }
                           onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                          onDelete={handleDeleteTicket}
+                          myUserId={myUserId}
                         />
                       ))
                     )}
@@ -725,6 +989,8 @@ export function TicketsView() {
                     })
                   }
                   onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                  onDelete={handleDeleteTicket}
+                  myUserId={myUserId}
                 />
               ))
             )}
@@ -761,6 +1027,7 @@ export function TicketsView() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onAdd={handleAddTicket}
+        members={areaMembers}
       />
     </div>
   );

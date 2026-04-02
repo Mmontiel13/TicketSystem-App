@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useUser } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   DndContext,
@@ -31,128 +33,59 @@ import {
   UserCircle,
   Plus,
   X,
+  Ghost,
+  Rose,
+  Rabbit,
+  Fish,
+  Cat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
 export type KanbanColumn = "Tareas" | "En proceso" | "Pendiente" | "Terminada";
+export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
 
 export interface KanbanMember {
   id: number;
-  name: string;
+  full_name: string;
+  avatar_icon: IconUserId;
 }
 
 export interface KanbanTask {
-  id: number;
+  id: string;
+  dbId: number;
+  title: string;
   description: string;
-  assignedDate: string;
-  deadline: string;
-  assignees: KanbanMember[];
-  column: KanbanColumn;
+  status: KanbanColumn;
+  start_date: string;
+  end_date: string;
+  assigned_to: number[];
+  team_id: number;
+  user_id: number;
 }
 
-/* ─── Mock data ──────���──────────────────────────────────────────────────────── */
+interface DbTaskRow {
+  id: number;
+  title: string;
+  description: string;
+  status: KanbanColumn;
+  start_date: string;
+  end_date: string;
+  assigned_to: number[];
+  team_id: number;
+  user_id: number;
+  is_active?: boolean;
+}
 
-const MEMBERS: KanbanMember[] = [
-  { id: 1, name: "Integrante 1" },
-  { id: 2, name: "Integrante 2" },
-  { id: 3, name: "Integrante 3" },
-  { id: 4, name: "Integrante 4" },
-];
-
-const MOCK_KANBAN_TASKS: KanbanTask[] = [
-  {
-    id: 1,
-    description:
-      "Actualizar el servidor de correos corporativos y verificar conectividad con clientes.",
-    assignedDate: "2025-04-01 09:00:00",
-    deadline: "2025-04-05 18:00:00",
-    assignees: [MEMBERS[0], MEMBERS[1], MEMBERS[2]],
-    column: "Tareas",
-  },
-  {
-    id: 2,
-    description:
-      "Revisar los permisos de acceso en el directorio activo para el área de ventas.",
-    assignedDate: "2025-04-02 10:30:00",
-    deadline: "2025-04-06 17:00:00",
-    assignees: [MEMBERS[1], MEMBERS[3]],
-    column: "Tareas",
-  },
-  {
-    id: 3,
-    description:
-      "Configurar VPN para los usuarios que trabajan de forma remota en la región norte.",
-    assignedDate: "2025-04-01 08:00:00",
-    deadline: "2025-04-04 15:00:00",
-    assignees: [MEMBERS[0], MEMBERS[2], MEMBERS[3]],
-    column: "En proceso",
-  },
-  {
-    id: 4,
-    description:
-      "Instalar parches de seguridad en las estaciones de trabajo del piso 3.",
-    assignedDate: "2025-04-03 11:00:00",
-    deadline: "2025-04-07 16:00:00",
-    assignees: [MEMBERS[2]],
-    column: "En proceso",
-  },
-  {
-    id: 5,
-    description:
-      "Migrar base de datos de clientes al nuevo servidor de alta disponibilidad.",
-    assignedDate: "2025-03-28 09:00:00",
-    deadline: "2025-04-10 18:00:00",
-    assignees: [MEMBERS[0], MEMBERS[1]],
-    column: "Pendiente",
-  },
-  {
-    id: 6,
-    description:
-      "Documentar el inventario de equipos de cómputo de todas las sucursales.",
-    assignedDate: "2025-03-30 10:00:00",
-    deadline: "2025-04-08 17:00:00",
-    assignees: [MEMBERS[3]],
-    column: "Pendiente",
-  },
-  {
-    id: 7,
-    description:
-      "Reemplazar 5 equipos obsoletos del área de contabilidad con nuevas workstations.",
-    assignedDate: "2025-03-25 09:00:00",
-    deadline: "2025-04-01 18:00:00",
-    assignees: [MEMBERS[0], MEMBERS[1], MEMBERS[2]],
-    column: "Terminada",
-  },
-  {
-    id: 8,
-    description:
-      "Configurar respaldos automáticos nocturnos para los servidores de producción.",
-    assignedDate: "2025-03-20 08:00:00",
-    deadline: "2025-03-27 17:00:00",
-    assignees: [MEMBERS[1], MEMBERS[2]],
-    column: "Terminada",
-  },
-  {
-    id: 9,
-    description:
-      "Capacitar al personal de RRHH en el uso del nuevo software de nómina.",
-    assignedDate: "2025-04-04 09:30:00",
-    deadline: "2025-04-09 16:00:00",
-    assignees: [MEMBERS[0]],
-    column: "Tareas",
-  },
-  {
-    id: 10,
-    description:
-      "Revisar y renovar licencias de software de productividad para todo el equipo.",
-    assignedDate: "2025-04-02 14:00:00",
-    deadline: "2025-04-11 18:00:00",
-    assignees: [MEMBERS[2], MEMBERS[3]],
-    column: "En proceso",
-  },
-];
+const ICON_MAP: Record<IconUserId, React.ElementType> = {
+  Ghost,
+  Rose,
+  Rabbit,
+  Users: UserCircle,
+  Fish,
+  Cat,
+};
 
 /* ─── Column config ──────────────────────────────────────────────────────────── */
 
@@ -188,33 +121,38 @@ const inputClass =
 
 const checkboxClass = "w-4 h-4 rounded border-border accent-primary cursor-pointer";
 
-/* ─── TaskCard (plain, used in overlay and column) ──────────────────────────── */
+/* ─── TaskCard (glassmorphism style) ─────────────────────────────────────────── */
 
 function TaskCardContent({
   task,
+  members,
   isDragging,
   onEdit,
   onDelete,
 }: {
   task: KanbanTask;
+  members: KanbanMember[];
   isDragging?: boolean;
   onEdit: (task: KanbanTask) => void;
-  onDelete: (taskId: number) => void;
+  onDelete: (taskId: string) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
+
+  const assignedMembers = members.filter((m) => task.assigned_to.includes(m.id));
+  const descSnippet = task.description.length > 60 ? task.description.slice(0, 60) + "..." : task.description;
 
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card p-3 flex flex-col gap-2 select-none",
+        "rounded-lg border border-white/20 bg-white/10 backdrop-blur-md p-3 flex flex-col gap-2 select-none",
         isDragging && "opacity-50 ring-1 ring-ring/20"
       )}
     >
       <div className="flex items-center justify-between">
-        <GripVertical size={14} className="text-muted-foreground cursor-grab" />
+        <GripVertical size={14} className="text-white/50 cursor-grab" />
         <div className="relative">
           <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-white/50 hover:text-white transition-colors"
             aria-label="Opciones"
             onClick={(e) => {
               e.stopPropagation();
@@ -225,13 +163,13 @@ function TaskCardContent({
             <MoreHorizontal size={14} />
           </button>
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-28 rounded-lg border border-border bg-card text-xs shadow-lg z-20">
+            <div className="absolute right-0 mt-1 w-28 rounded-lg border border-white/20 bg-popover/95 backdrop-blur-md text-xs shadow-lg z-20">
               <button
                 onClick={() => {
                   setShowMenu(false);
                   onEdit(task);
                 }}
-                className="w-full text-left px-2 py-1.5 hover:bg-accent/70"
+                className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-foreground"
               >
                 Editar
               </button>
@@ -249,52 +187,65 @@ function TaskCardContent({
         </div>
       </div>
 
-      <p className="text-foreground text-xs leading-relaxed border border-border rounded-md p-2 bg-muted min-h-[56px]">
-        {task.description}
-      </p>
+      <div className="flex flex-col gap-1">
+        <p className="text-white font-medium text-xs">{task.title}</p>
+        <p className="text-white/70 text-[11px] leading-relaxed">{descSnippet}</p>
+      </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-muted-foreground text-[10px]">Fecha de asignación</span>
-        <span className="text-muted-foreground text-[11px] tabular-nums">
-          {task.assignedDate}
+        <span className="text-white/50 text-[10px]">Inicio</span>
+        <span className="text-white/70 text-[11px] tabular-nums">
+          {new Date(task.start_date).toLocaleDateString()}
         </span>
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-muted-foreground text-[10px]">Fecha Límite</span>
-        <span className="text-muted-foreground text-[11px] tabular-nums">
-          {task.deadline}
+        <span className="text-white/50 text-[10px]">Vencimiento</span>
+        <span className="text-white/70 text-[11px] tabular-nums">
+          {new Date(task.end_date).toLocaleDateString()}
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-muted-foreground text-[10px]">Asignado a:</span>
-        <div className="flex -space-x-1">
-          {task.assignees.slice(0, 4).map((m) => (
-            <div
-              key={m.id}
-              title={m.name}
-              className="w-6 h-6 rounded-full bg-muted border border-border flex items-center justify-center"
-            >
-              <UserCircle size={16} className="text-muted-foreground" />
-            </div>
-          ))}
+      {assignedMembers.length > 0 && (
+        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-white/10">
+          <span className="text-white/50 text-[10px]">Asignado:</span>
+          <div className="flex -space-x-2">
+            {assignedMembers.slice(0, 4).map((m) => {
+              const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
+              return (
+                <div
+                  key={m.id}
+                  title={m.full_name}
+                  className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center shrink-0"
+                >
+                  <Icon size={14} className="text-white/70" />
+                </div>
+              );
+            })}
+            {assignedMembers.length > 4 && (
+              <div className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-[10px] text-white/70">
+                +{assignedMembers.length - 4}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-/* ─── Sortable Task Card (dnd-kit) ───────────────────────────────────────────── */
+/* ─── Sortable Task Card ────────────────────────────────────────────────────── */
 
 function SortableTaskCard({
   task,
+  members,
   onEdit,
   onDelete,
 }: {
   task: KanbanTask;
+  members: KanbanMember[];
   onEdit: (task: KanbanTask) => void;
-  onDelete: (taskId: number) => void;
+  onDelete: (taskId: string) => void;
 }) {
   const {
     attributes,
@@ -303,7 +254,7 @@ function SortableTaskCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id, data: { column: task.column } });
+  } = useSortable({ id: task.id, data: { column: task.status } });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -326,6 +277,7 @@ function SortableTaskCard({
     >
       <TaskCardContent
         task={task}
+        members={members}
         isDragging={isDragging}
         onEdit={onEdit}
         onDelete={onDelete}
@@ -339,15 +291,17 @@ function SortableTaskCard({
 function KanbanColumnPanel({
   config,
   tasks,
+  members,
   isOver,
   onEditTask,
   onDeleteTask,
 }: {
   config: ColumnConfig;
   tasks: KanbanTask[];
+  members: KanbanMember[];
   isOver: boolean;
   onEditTask: (task: KanbanTask) => void;
-  onDeleteTask: (id: number) => void;
+  onDeleteTask: (id: string) => void;
 }) {
   const Icon = config.icon;
   const taskIds = tasks.map((t) => t.id);
@@ -368,13 +322,6 @@ function KanbanColumnPanel({
             {tasks.length}
           </span>
         </div>
-        <button
-          className="text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Opciones de columna"
-          type="button"
-        >
-          <MoreHorizontal size={15} />
-        </button>
       </div>
 
       {/* Cards */}
@@ -385,6 +332,7 @@ function KanbanColumnPanel({
               <SortableTaskCard
                 key={task.id}
                 task={task}
+                members={members}
                 onEdit={onEditTask}
                 onDelete={onDeleteTask}
               />
@@ -402,35 +350,36 @@ function KanbanColumnPanel({
   );
 }
 
-/* ─── Create Task Sidebar ────────────────────────────────────────────────────── */
+/* ─── Create/Edit Task Sidebar ──────────────────────────────────────────────── */
 
 function CreateTaskSidebar({
   onClose,
   onAdd,
   onUpdate,
   task,
+  members,
 }: {
   onClose: () => void;
-  onAdd: (task: Omit<KanbanTask, "id">) => void;
+  onAdd: (task: Omit<KanbanTask, "id" | "dbId">) => void;
   onUpdate?: (task: KanbanTask) => void;
   task?: KanbanTask | null;
+  members: KanbanMember[];
 }) {
+  const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [assignAll, setAssignAll] = useState(false);
-  const [selectedMembers, setSelectedMembers] = useState<number[]>(
-    task?.assignees.map((m) => m.id) ?? []
+  const [selectedMembers, setSelectedMembers] = useState<number[]>(task?.assigned_to ?? []);
+  const [endDate, setEndDate] = useState(
+    task?.end_date ? task.end_date.split("T")[0] : ""
   );
-  const [hasDeadline, setHasDeadline] = useState(Boolean(task?.deadline && task.deadline !== "—"));
-  const [deadline, setDeadline] = useState(task?.deadline && task.deadline !== "—" ? task.deadline : "");
-  const [column, setColumn] = useState<KanbanColumn>(task?.column ?? "Tareas");
+  const [status, setStatus] = useState<KanbanColumn>(task?.status ?? "Tareas");
 
   useEffect(() => {
     if (!task) return;
+    setTitle(task.title);
     setDescription(task.description);
-    setSelectedMembers(task.assignees.map((m) => m.id));
-    setHasDeadline(Boolean(task.deadline && task.deadline !== "—"));
-    setDeadline(task.deadline && task.deadline !== "—" ? task.deadline : "");
-    setColumn(task.column);
+    setSelectedMembers(task.assigned_to);
+    setEndDate(task.end_date.split("T")[0]);
+    setStatus(task.status);
   }, [task]);
 
   function toggleMember(id: number) {
@@ -439,19 +388,21 @@ function CreateTaskSidebar({
     );
   }
 
-  function handleAdd() {
-    if (!description.trim()) return;
-    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-    const assignees = assignAll
-      ? MEMBERS
-      : MEMBERS.filter((m) => selectedMembers.includes(m.id));
+  function handleSave() {
+    if (!title.trim() || !description.trim() || !endDate) return;
+
+    const startDate = new Date().toISOString();
+    const endDateTime = new Date(endDate).toISOString();
 
     const taskPayload = {
+      title: title.trim(),
       description: description.trim(),
-      assignedDate: task?.assignedDate ?? now,
-      deadline: hasDeadline && deadline ? deadline : "—",
-      assignees,
-      column,
+      status,
+      start_date: task?.start_date ?? startDate,
+      end_date: endDateTime,
+      assigned_to: selectedMembers,
+      team_id: task?.team_id ?? 0,
+      user_id: task?.user_id ?? 0,
     };
 
     if (task && onUpdate) {
@@ -479,7 +430,7 @@ function CreateTaskSidebar({
         className={sidebarSurfaceClass}
         role="dialog"
         aria-modal="true"
-        aria-label="Agregar tarea"
+        aria-label={task ? "Editar tarea" : "Agregar tarea"}
       >
         <div className="flex items-start justify-between">
           <div>
@@ -487,7 +438,7 @@ function CreateTaskSidebar({
               {task ? "Editando tarea" : "Agregando tarea"}
             </h2>
             <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
-              Se puede definir una tarea para un miembro del equipo o el equipo completo
+              Completa los detalles y asigna miembros del equipo
             </p>
           </div>
 
@@ -502,21 +453,32 @@ function CreateTaskSidebar({
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <label className="text-muted-foreground text-xs font-medium">Título</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Nombre de la tarea..."
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <label className="text-muted-foreground text-xs font-medium">Descripción</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            placeholder="Lorem ipsum dolor sit amet consectetur..."
+            placeholder="Detalles de la tarea..."
             className={cn(inputClass, "resize-none leading-relaxed")}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Columna</label>
+          <label className="text-muted-foreground text-xs font-medium">Estado</label>
           <select
-            value={column}
-            onChange={(e) => setColumn(e.target.value as KanbanColumn)}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as KanbanColumn)}
             className={inputClass}
           >
             {COLUMNS.map((col) => (
@@ -527,59 +489,48 @@ function CreateTaskSidebar({
           </select>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-foreground text-xs">Asignar a todo el equipo</span>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-muted-foreground text-xs font-medium">Fecha de vencimiento</label>
           <input
-            type="checkbox"
-            checked={assignAll}
-            onChange={(e) => setAssignAll(e.target.checked)}
-            className={checkboxClass}
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className={inputClass}
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-foreground text-xs font-medium">Integrantes:</span>
+          <span className="text-foreground text-xs font-medium">Asignar a:</span>
 
-          {MEMBERS.map((m) => (
-            <div key={m.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserCircle size={24} className="text-muted-foreground" />
-                <span className="text-foreground text-xs">{m.name}</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={assignAll || selectedMembers.includes(m.id)}
-                disabled={assignAll}
-                onChange={() => toggleMember(m.id)}
-                className={cn(checkboxClass, "disabled:opacity-40")}
-              />
-            </div>
-          ))}
+          <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+            {members.length === 0 ? (
+              <p className="text-muted-foreground text-xs">No hay miembros en el área.</p>
+            ) : (
+              members.map((m) => {
+                const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
+                return (
+                  <div key={m.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon size={18} className="text-muted-foreground" />
+                      <span className="text-foreground text-xs">{m.full_name}</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedMembers.includes(m.id)}
+                      onChange={() => toggleMember(m.id)}
+                      className={checkboxClass}
+                    />
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-foreground text-xs">Fecha límite</span>
-          <input
-            type="checkbox"
-            checked={hasDeadline}
-            onChange={(e) => setHasDeadline(e.target.checked)}
-            className={checkboxClass}
-          />
-        </div>
-
-        {hasDeadline && (
-          <input
-            type="datetime-local"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className={inputClass}
-          />
-        )}
 
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={handleAdd}
+          onClick={handleSave}
           className={cn(headerButtonClass, "mt-auto justify-center")}
           type="button"
         >
@@ -594,23 +545,122 @@ function CreateTaskSidebar({
 /* ─── Main View ──────────────────────────────────────────────────────────────── */
 
 export function KanbanView() {
-  const [tasks, setTasks] = useState<KanbanTask[]>(MOCK_KANBAN_TASKS);
+  const { user } = useUser();
+  const supabase = createClient();
+  const { toast } = useToast();
+  const isAdmin = user.role === "admin";
+
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
+  const [members, setMembers] = useState<KanbanMember[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editTask, setEditTask] = useState<KanbanTask | null>(null);
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null);
   const [overColumn, setOverColumn] = useState<KanbanColumn | null>(null);
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [myTeamId, setMyTeamId] = useState<number | null>(null);
+  const [myUserId, setMyUserId] = useState<number | null>(null);
+  const [teamName, setTeamName] = useState<string>("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  // Track which column each task belongs to for efficient lookup
-  const taskById = useRef<Map<number, KanbanTask>>(new Map());
+  const taskById = useRef<Map<string, KanbanTask>>(new Map());
   tasks.forEach((t) => taskById.current.set(t.id, t));
 
+  async function fetchTeamData() {
+    setLoading(true);
+    try {
+      const email = user.email;
+      const { data: userRow, error: userError } = await supabase
+        .from("users")
+        .select("id, team_id, role")
+        .eq("email", email)
+        .single();
+
+      if (userError || !userRow) {
+        console.warn("Could not resolve user", userError);
+        return;
+      }
+
+      const userId = Number(userRow.id);
+      const teamId = Number(userRow.team_id);
+      setMyUserId(userId);
+      setMyTeamId(teamId);
+
+      const { data: teamRow } = await supabase
+        .from("teams")
+        .select("name")
+        .eq("id", teamId)
+        .single();
+
+      if (teamRow) setTeamName(teamRow.name ?? "");
+
+      await fetchMembers(teamId);
+      await fetchTasks(teamId);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchMembers(teamId: number) {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name, avatar_icon")
+      .eq("team_id", teamId)
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("Error fetching team members", error);
+      return;
+    }
+
+    setMembers(
+      (data ?? []).map((m) => ({
+        id: Number(m.id),
+        full_name: m.full_name ?? "",
+        avatar_icon: (m.avatar_icon as IconUserId) || "Users",
+      }))
+    );
+  }
+
+  async function fetchTasks(teamId: number) {
+    let query = supabase
+      .from<DbTaskRow>("tasks")
+      .select("*")
+      .eq("is_active", true)
+      .eq("team_id", teamId)
+      .order("start_date", { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching tasks", error);
+      return;
+    }
+
+    const mapped = (data ?? []).map((row) => ({
+      id: `TSK-${String(row.id).padStart(4, "0")}`,
+      dbId: row.id,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      assigned_to: row.assigned_to ?? [],
+      team_id: row.team_id,
+      user_id: row.user_id,
+    }));
+
+    setTasks(mapped);
+  }
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [user.email]);
+
   function onDragStart(event: DragStartEvent) {
-    const task = taskById.current.get(event.active.id as number);
+    const task = taskById.current.get(event.active.id as string);
     if (task) setActiveTask(task);
   }
 
@@ -618,40 +668,54 @@ export function KanbanView() {
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = active.id as number;
+    const activeId = active.id as string;
     const overId = over.id;
 
-    // Determine the column we're hovering over
     const overTask = tasks.find((t) => t.id === overId);
     const targetColumn: KanbanColumn | null = overTask
-      ? overTask.column
+      ? overTask.status
       : (COLUMNS.find((c) => c.id === overId)?.id ?? null);
 
     if (!targetColumn) return;
     setOverColumn(targetColumn);
 
     const activeTask = tasks.find((t) => t.id === activeId);
-    if (!activeTask || activeTask.column === targetColumn) return;
+    if (!activeTask || activeTask.status === targetColumn) return;
 
-    // Move card to new column immediately for visual feedback
     setTasks((prev) =>
-      prev.map((t) => (t.id === activeId ? { ...t, column: targetColumn } : t))
+      prev.map((t) => (t.id === activeId ? { ...t, status: targetColumn } : t))
     );
   }
 
-  function onDragEnd(event: DragEndEvent) {
+  async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveTask(null);
     setOverColumn(null);
 
     if (!over) return;
 
-    const activeId = active.id as number;
-    const overId = over.id as number;
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
     if (activeId === overId) return;
 
-    // Reorder within the same column
+    const task = tasks.find((t) => t.id === activeId);
+    if (!task) return;
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: task.status })
+      .eq("id", task.dbId);
+
+    if (error) {
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo cambiar el estado.",
+      });
+      await fetchTasks(myTeamId!);
+      return;
+    }
+
     setTasks((prev) => {
       const activeIndex = prev.findIndex((t) => t.id === activeId);
       const overIndex = prev.findIndex((t) => t.id === overId);
@@ -662,29 +726,89 @@ export function KanbanView() {
     });
   }
 
-  function handleAddTask(task: Omit<KanbanTask, "id">) {
-    setTasks((prev) => [...prev, { ...task, id: Date.now() }]);
+  async function handleAddTask(task: Omit<KanbanTask, "id" | "dbId">) {
+    if (!myUserId || !myTeamId) return;
+
+    const { error } = await supabase.from("tasks").insert([
+      {
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        start_date: new Date().toISOString(),
+        end_date: task.end_date,
+        assigned_to: task.assigned_to,
+        team_id: myTeamId,
+        user_id: myUserId,
+        is_active: true,
+      },
+    ]);
+
+    if (error) {
+      toast({
+        title: "Error al crear tarea",
+        description: "No se pudo guardar",
+      });
+      console.error(error);
+      return;
+    }
+
+    toast({ title: "Tarea creada", description: "Se agregó correctamente." });
+    setShowCreate(false);
+    await fetchTasks(myTeamId);
   }
 
-  function handleUpdateTask(updatedTask: KanbanTask) {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === updatedTask.id ? { ...updatedTask } : t))
-    );
+  async function handleUpdateTask(task: KanbanTask) {
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        end_date: task.end_date,
+        assigned_to: task.assigned_to,
+      })
+      .eq("id", task.dbId);
+
+    if (error) {
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo guardar.",
+      });
+      console.error(error);
+      return;
+    }
+
     setEditTask(null);
-    toast({ title: "Tarea actualizada", description: "Los cambios en la tarea se guardaron." });
+    toast({ title: "Tarea actualizada", description: "Cambios guardados." });
+    await fetchTasks(myTeamId!);
   }
 
-  function handleDeleteTask(taskId: number) {
-    const confirmed = window.confirm("¿Estás seguro de que deseas eliminar esta tarea?");
+  async function handleDeleteTask(taskId: string) {
+    const confirmed = window.confirm("¿Eliminar esta tarea?");
     if (!confirmed) return;
 
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ is_active: false })
+      .eq("id", task.dbId);
+
+    if (error) {
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar.",
+      });
+      return;
+    }
+
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    toast({ title: "Tarea eliminada", description: "Se ha eliminado la tarea correctamente." });
+    toast({ title: "Tarea eliminada" });
   }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Top bar */}
       <header className="flex items-center justify-between px-6 md:px-8 py-4 border-b border-border shrink-0">
         <h1 className="text-foreground font-semibold text-lg">Kanban</h1>
 
@@ -701,50 +825,54 @@ export function KanbanView() {
         </motion.button>
       </header>
 
-      {/* Board */}
       <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 pt-5 pb-4 gap-4">
         <h2 className="text-foreground font-semibold text-base shrink-0">
-          Equipo de Recursos Humanos
+          {teamName || "Área del Equipo"}
         </h2>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragEnd={onDragEnd}
-        >
-          {/* Columns */}
-          <div className="flex gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2">
-            {COLUMNS.map((col) => (
-              <KanbanColumnPanel
-                key={col.id}
-                config={col}
-                tasks={tasks.filter((t) => t.column === col.id)}
-                isOver={overColumn === col.id}
-                onEditTask={(task) => setEditTask(task)}
-                onDeleteTask={handleDeleteTask}
-              />
-            ))}
+        {loading ? (
+          <div className="flex items-center justify-center flex-1">
+            <span className="text-muted-foreground">Cargando tareas...</span>
           </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+          >
+            <div className="flex gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2">
+              {COLUMNS.map((col) => (
+                <KanbanColumnPanel
+                  key={col.id}
+                  config={col}
+                  tasks={tasks.filter((t) => t.status === col.id)}
+                  members={members}
+                  isOver={overColumn === col.id}
+                  onEditTask={(task) => setEditTask(task)}
+                  onDeleteTask={handleDeleteTask}
+                />
+              ))}
+            </div>
 
-          {/* Drag overlay — ghost card following cursor */}
-          <DragOverlay>
-            {activeTask ? (
-              <div className="rotate-1 shadow-2xl opacity-90 w-[220px]">
-                <TaskCardContent task={activeTask} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+            <DragOverlay>
+              {activeTask ? (
+                <div className="rotate-1 shadow-2xl opacity-90 w-[220px]">
+                  <TaskCardContent task={activeTask} members={members} />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
       </div>
 
-      {/* Create task sidebar */}
       <AnimatePresence>
         {showCreate && (
           <CreateTaskSidebar
             onClose={() => setShowCreate(false)}
             onAdd={handleAddTask}
+            members={members}
           />
         )}
         {editTask && (
@@ -753,6 +881,7 @@ export function KanbanView() {
             onClose={() => setEditTask(null)}
             onAdd={handleAddTask}
             onUpdate={handleUpdateTask}
+            members={members}
           />
         )}
       </AnimatePresence>

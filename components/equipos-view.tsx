@@ -64,7 +64,7 @@ type IconId = (typeof TEAM_ICONS)[number]["id"];
 type IconUserId = (typeof USER_ICONS)[number]["id"];
 
 type EditingUser = {
-  id: number;
+  id: string | number;
   full_name: string;
   email: string;
   avatar_icon: IconUserId;
@@ -81,7 +81,7 @@ function iconByUserId(id: IconUserId) {
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
 type TeamMember = {
-  id: number;
+  id: string | number;
   name: string;
   full_name?: string;
   email: string;
@@ -447,7 +447,7 @@ function AddMemberModal({
 }: {
   onClose: () => void;
   onAdd: (name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; password?: string; message: string }>;
-  onUpdate: (userId: number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; message: string }>;
+  onUpdate: (userId: string | number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; message: string }>;
   initialUser?: EditingUser;
   members?: TeamMember[];
 }) {
@@ -682,7 +682,7 @@ function TeamDetailPane({
   isAdmin: boolean;
   onEdit: () => void;
   onMemberAdded: (teamId: number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; password?: string; message: string }>;
-  onMemberRemove: (teamId: number, memberId: number) => Promise<void>;
+  onMemberRemove: (teamId: number, memberId: string | number) => Promise<void>;
   onEditMember: (member: EditingUser) => void;
   deletingMemberId?: number | null;
   isSavingMember?: boolean;
@@ -892,7 +892,7 @@ export function EquiposView() {
       members: [],
     } as Team);
 
-  async function deleteUser(userId: number) {
+  async function deleteUser(userId: string | number) {
     const { error } = await supabase.from("users").update({ is_active: false }).eq("id", userId);
     if (error) {
       console.error("Error al desactivar usuario", error);
@@ -900,7 +900,7 @@ export function EquiposView() {
     }
   }
 
-  async function handleUpdateMember(userId: number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; message: string }> {
+  async function handleUpdateMember(userId: string | number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; message: string }> {
     try {
       const { error } = await supabase
         .from("users")
@@ -934,66 +934,48 @@ export function EquiposView() {
   async function handleMemberAdded(teamId: number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; password?: string; message: string }> {
     setIsSavingMember(true);
     setStatusMessage(null);
-    const generatedPassword = generateRandomPassword(8);
 
     try {
-      const { data, error } = await supabase
-        .from("users")
-        .insert([
-          {
-            full_name: memberName,
-            email: memberEmail,
-            password: generatedPassword, // TODO: hash this password before storing in production
-            avatar_icon: memberIcon,
-            team_id: teamId,
-            role: "user",
-            is_active: true,
-          },
-        ])
-        .select();
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: memberName,
+          email: memberEmail,
+          avatar_icon: memberIcon,
+          team_id: teamId,
+        }),
+      })
 
-      if (error) {
-        console.error("Error al agregar miembro:", error);
-        // Handle unique constraint violation on email
-        if (error.code === "23505") {
-          return { success: false, message: "Este correo ya está registrado en otro usuario." };
-        }
-        const message = "Error al agregar miembro. Revisa la consola.";
-        setStatusMessage(message);
-        return { success: false, message };
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        const message = result.error || "Error al agregar miembro";
+        setStatusMessage(message)
+        return { success: false, message }
       }
 
-      const inserted = data?.[0];
-      if (!inserted) {
-        const message = "No se pudo agregar el miembro.";
-        setStatusMessage(message);
-        return { success: false, message };
-      }
+      await refreshTeams()
 
-      // Auto-refresh teams + members after successful insert
-      // Do NOT manually update state - refreshTeams will fetch from DB
-      await refreshTeams();
+      const successMessage = `Miembro agregado. Contraseña temporal: ${result.password}`
+      setStatusMessage(successMessage)
+      sendWelcomeEmail(memberEmail, result.password)
 
-      sendWelcomeEmail(memberEmail, generatedPassword);
-      const successMessage = `Miembro agregado. Contraseña temporal: ${generatedPassword}`;
-
-      addUser({
-        id: inserted.id,
-        name: inserted.full_name,
-        email: inserted.email,
-        password: generatedPassword,
-        role: (inserted.role as "user" | "admin") || "user",
-        iconId: (inserted.avatar_icon as IconUserId) || "Users",
-      });
-
-      return { success: true, password: generatedPassword, message: successMessage };
+      return { success: true, password: result.password, message: successMessage }
+    } catch (error) {
+      console.error("Error al agregar miembro:", error)
+      const message = "Error al agregar miembro"
+      setStatusMessage(message)
+      return { success: false, message }
     } finally {
-      setIsSavingMember(false);
+      setIsSavingMember(false)
     }
   }
 
-  async function handleMemberRemove(teamId: number, memberId: number) {
-    setDeletingMemberId(memberId);
+  async function handleMemberRemove(teamId: number, memberId: string | number) {
+    setDeletingMemberId(typeof memberId === 'number' ? memberId : Number(memberId));
     setStatusMessage(null);
 
     try {
@@ -1012,8 +994,16 @@ export function EquiposView() {
         )
       );
 
-      deactivateUser(memberId);
-      setStatusMessage("Miembro eliminado (lógico) correctamente.");
+      if (typeof memberId === "number") {
+        deactivateUser(memberId);
+      } else {
+        const parsed = Number(memberId);
+        if (!Number.isNaN(parsed)) {
+          deactivateUser(parsed);
+        }
+      }
+
+      setStatusMessage("Miembro eliminado correctamente.");
     } catch {
       setStatusMessage("Error al eliminar miembro. Revisa la consola.");
     } finally {
