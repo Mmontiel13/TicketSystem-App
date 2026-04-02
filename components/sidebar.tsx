@@ -47,6 +47,14 @@ const NAV_GENERAL_LINKS = [
 /* ─── Logo SVG ───────────────────────────────────────────────────────────────── */
 
 function AsiatechMark({ isDark }: { isDark: boolean }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <img
       src="/logodark.svg"
