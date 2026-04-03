@@ -32,19 +32,35 @@ export default function LoginPage() {
 
       if (error) {
         if (error.message.toLowerCase().includes("confirm") || error.message.toLowerCase().includes("confirmar")) {
+          setError("Por favor, confirma tu correo antes de entrar");
+        } else {
           setError(error.message || "Credenciales inválidas");
-          setLoading(false);
-          return;
         }
+        setLoading(false);
+        return;
       }
 
-      if (!data?.session) {
+      if (!data?.session || !data.session.user) {
         setError("No se pudo iniciar sesión. Intenta de nuevo.");
         setLoading(false);
         return;
       }
 
-      router.push("/tickets");
+      const userEmail = data.session.user.email ?? identifier.trim().toLowerCase();
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("id, full_name, avatar_icon, role, email")
+        .eq("email", userEmail)
+        .single();
+
+      if (profileError || !profile) {
+        setError("No se pudo cargar el perfil del usuario.");
+        setLoading(false);
+        return;
+      }
+
+      const targetRoute = profile.role === "admin" ? "/dashboard/metricas" : "/dashboard/tickets";
+      router.push(targetRoute);
     } catch (e) {
       console.error("Login error:", e);
       setError("Ocurrió un error inesperado. Intenta de nuevo más tarde.");

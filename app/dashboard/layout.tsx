@@ -1,13 +1,45 @@
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
-import { UserProvider } from "@/lib/user-context";
+import { UserProvider, type UserProfile, type UserRole, type IconUserId } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/server";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+
+  if (!authData?.user?.email) {
+    redirect("/login");
+  }
+
+  const userEmail = authData.user.email;
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("id, full_name, avatar_icon, role, email")
+    .eq("email", userEmail)
+    .single();
+
+  if (profileError || !profile) {
+    console.error("Unable to load dashboard profile:", profileError);
+    redirect("/login");
+  }
+
+  const initialUser: UserProfile = {
+    id: Number(profile.id),
+    authId: authData.user.id,
+    name: profile.full_name ?? profile.email,
+    email: profile.email,
+    role: (profile.role as UserRole) ?? "user",
+    iconId: (profile.avatar_icon as IconUserId) || "Users",
+    isActive: true,
+    deletedAt: null,
+  };
+
   return (
-    <UserProvider>
+    <UserProvider initialUser={initialUser}>
       <div className="flex min-h-screen bg-background">
         <Sidebar />
         {/* Offset main content by sidebar width */}
