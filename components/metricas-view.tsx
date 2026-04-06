@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   AreaChart,
@@ -17,56 +17,76 @@ import {
   Users,
   Clock,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { MOCK_TICKETS } from "@/lib/mock-tickets";
 import { useUser } from "@/lib/user-context";
-
-// ─── KPI derived from mock data ─────────────────────────────────────────────────────────────
-const totalTickets = MOCK_TICKETS.length;
-const pendingTickets = MOCK_TICKETS.filter((t) => t.status === "Pendiente").length;
-
-// ─── Chart data ─────────────────────────────────────────────────────────────
-// 90 days of synthetic daily pending-ticket counts
-function generateChartData(days: number) {
-  const data: { label: string; value: number }[] = [];
-  const now = new Date();
-  // Seed values for a realistic wave-like curve
-  const seeds: Record<number, number[]> = {
-    90: [
-      2, 3, 4, 5, 6, 7, 9, 11, 14, 17, 20, 24, 28, 30, 31, 30, 28, 25, 22, 20,
-      18, 16, 14, 12, 11, 10, 9, 9, 10, 11, 13, 15, 18, 21, 24, 26, 27, 26, 24,
-      22, 20, 18, 16, 15, 14, 13, 12, 12, 13, 14, 15, 16, 17, 18, 19, 20, 20,
-      19, 18, 17, 16, 15, 14, 14, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-      25, 26, 27, 28, 29, 30,
-    ],
-    30: [
-      10, 11, 12, 13, 15, 17, 19, 21, 22, 21, 19, 17, 15, 13, 12, 12, 13, 14,
-      15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-    ],
-    7: [14, 16, 18, 22, 25, 27, 30],
-  };
-  const values = seeds[days] ?? seeds[30];
-  // Only show labels for specific dates to avoid crowding
-  const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
-
-  for (let i = 0; i < days; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (days - 1 - i));
-    const day = d.getDate();
-    const month = d.toLocaleString("es-MX", { month: "long" });
-    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
-    const showLabel = i % labelInterval === 0 || i === days - 1;
-
-    data.push({
-      label: showLabel ? `${monthCap} ${day}` : "",
-      value: values[i] ?? Math.round(10 + Math.random() * 20),
-    });
-  }
-  return data;
-}
 
 type RangeKey = 90 | 30 | 7;
 type DataTab = "Tickets" | "Usuarios";
+
+type TicketRow = {
+  id: string;
+  status: string | null;
+  arrival_time: string | null;
+};
+
+type UserRow = {
+  id: string;
+  created_at: string | null;
+};
+
+function formatChartLabel(dateString: string) {
+  const date = new Date(dateString);
+  const month = date.toLocaleString("es-MX", { month: "short" });
+  return `${month.charAt(0).toUpperCase() + month.slice(1)} ${date.getDate()}`;
+}
+
+function buildTimeSeriesData(
+  rows: Array<Record<string, string | null>>,
+  dateKey: string,
+  days: number,
+) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const start = new Date(now);
+  start.setDate(start.getDate() - (days - 1));
+
+  const dateIndex: Record<string, number> = {};
+  for (let i = 0; i < days; i += 1) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + i);
+    dateIndex[day.toISOString().slice(0, 10)] = 0;
+  }
+
+  rows.forEach((row) => {
+    const value = row[dateKey];
+    if (!value) return;
+    const normalized = new Date(value);
+    normalized.setHours(0, 0, 0, 0);
+    const key = normalized.toISOString().slice(0, 10);
+    if (key in dateIndex) {
+      dateIndex[key] += 1;
+    }
+  });
+
+  const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
+
+  return Object.keys(dateIndex).map((dateKeyValue, index) => ({
+    label:
+      index % labelInterval === 0 || index === Object.keys(dateIndex).length - 1
+        ? formatChartLabel(dateKeyValue)
+        : "",
+    value: dateIndex[dateKeyValue],
+  }));
+}
+
+function calculateTrend(current: number, previous: number) {
+  if (previous === 0) {
+    return current === 0 ? 0 : 100;
+  }
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 interface KpiCardProps {
@@ -137,10 +157,103 @@ function ChartTooltip({ active, payload, label }: any) {
 export function MetricasView() {
   const [range, setRange] = useState<RangeKey>(90);
   const [dataTab, setDataTab] = useState<DataTab>("Tickets");
+  const [totalTickets, setTotalTickets] = useState(0);
+  const [pendingTickets, setPendingTickets] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [ticketRows, setTicketRows] = useState<TicketRow[]>([]);
+  const [userRows, setUserRows] = useState<UserRow[]>([]);
+  const [ticketTrend, setTicketTrend] = useState(0);
+  const [pendingTrend, setPendingTrend] = useState(0);
+  const [usersTrend, setUsersTrend] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const chartData = generateChartData(range);
-  const { users, user } = useUser();
-  const totalUsers = users.filter((u) => u.isActive).length;
+  const { user } = useUser();
+
+  useEffect(() => {
+    async function loadMetrics() {
+      const supabase = createClient();
+      setIsLoading(true);
+
+      const now = new Date();
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 89);
+      ninetyDaysAgo.setHours(0, 0, 0, 0);
+
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        totalTicketsResponse,
+        pendingTicketsResponse,
+        totalUsersResponse,
+        recentTicketsResponse,
+        recentUsersResponse,
+      ] = await Promise.all([
+        supabase.from("tickets").select("id", { count: "exact", head: true }).eq("is_active", true),
+        supabase
+          .from("tickets")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+          .eq("status", "Pendiente"),
+        supabase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true),
+        supabase
+          .from("tickets")
+          .select("id,status,arrival_time")
+          .eq("is_active", true)
+          .gte("arrival_time", ninetyDaysAgo.toISOString())
+          .order("arrival_time", { ascending: true }),
+        supabase
+          .from("users")
+          .select("id,created_at")
+          .eq("is_active", true)
+          .gte("created_at", ninetyDaysAgo.toISOString())
+          .order("created_at", { ascending: true }),
+      ]);
+
+      setTotalTickets(totalTicketsResponse.count ?? 0);
+      setPendingTickets(pendingTicketsResponse.count ?? 0);
+      setTotalUsers(totalUsersResponse.count ?? 0);
+
+      const recentTickets = (recentTicketsResponse.data ?? []) as TicketRow[];
+      const recentUsers = (recentUsersResponse.data ?? []) as UserRow[];
+      setTicketRows(recentTickets);
+      setUserRows(recentUsers);
+
+      const currentTicketsMonth = recentTickets.filter((row) => {
+        const date = row.arrival_time ? new Date(row.arrival_time) : null;
+        return date ? date >= currentMonthStart && date < nextMonthStart : false;
+      }).length;
+      const previousTicketsMonth = recentTickets.filter((row) => {
+        const date = row.arrival_time ? new Date(row.arrival_time) : null;
+        return date ? date >= previousMonthStart && date < previousMonthEnd : false;
+      }).length;
+      const currentPendingMonth = recentTickets.filter((row) => {
+        const date = row.arrival_time ? new Date(row.arrival_time) : null;
+        return row.status === "Pendiente" && date ? date >= currentMonthStart && date < nextMonthStart : false;
+      }).length;
+      const previousPendingMonth = recentTickets.filter((row) => {
+        const date = row.arrival_time ? new Date(row.arrival_time) : null;
+        return row.status === "Pendiente" && date ? date >= previousMonthStart && date < previousMonthEnd : false;
+      }).length;
+      const currentUsersMonth = recentUsers.filter((row) => {
+        const date = row.created_at ? new Date(row.created_at) : null;
+        return date ? date >= currentMonthStart && date < nextMonthStart : false;
+      }).length;
+      const previousUsersMonth = recentUsers.filter((row) => {
+        const date = row.created_at ? new Date(row.created_at) : null;
+        return date ? date >= previousMonthStart && date < previousMonthEnd : false;
+      }).length;
+
+      setTicketTrend(calculateTrend(currentTicketsMonth, previousTicketsMonth));
+      setPendingTrend(calculateTrend(currentPendingMonth, previousPendingMonth));
+      setUsersTrend(calculateTrend(currentUsersMonth, previousUsersMonth));
+      setIsLoading(false);
+    }
+
+    loadMetrics().catch(() => setIsLoading(false));
+  }, []);
 
   if (user.role !== "admin") {
     return (
@@ -164,6 +277,20 @@ export function MetricasView() {
   const cursorColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
   const gridStroke = isDark ? "#18181b" : "#e5e7eb";
 
+  const ticketChartData = useMemo(
+    () => buildTimeSeriesData(ticketRows.filter((row) => row.status === "Pendiente"), "arrival_time", range),
+    [ticketRows, range],
+  );
+
+  const userChartData = useMemo(
+    () => buildTimeSeriesData(userRows, "created_at", range),
+    [userRows, range],
+  );
+
+  const chartData = dataTab === "Tickets" ? ticketChartData : userChartData;
+  const chartTitle = dataTab === "Tickets" ? "Total de Tickets Pendientes" : "Registro de usuarios";
+  const chartSubtitle = dataTab === "Tickets" ? "Tendencia de tickets pendientes en el tiempo" : "Nuevos usuarios registrados";
+
   const RANGE_LABELS: Record<RangeKey, string> = {
     90: "Últimos 90 días",
     30: "Últimos 30 días",
@@ -180,30 +307,30 @@ export function MetricasView() {
       {/* Content */}
       <div className="flex-1 px-8 py-6 flex flex-col gap-5 overflow-auto">
         {/* ── KPI cards row ── */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
           <KpiCard
             title="Total de Tickets"
-            value={`${totalTickets} Tickets`}
+            value={isLoading ? "Cargando..." : `${totalTickets} Tickets`}
             icon={<Ticket size={22} />}
-            trend={3.2}
-            trendLabel="Dentro del promedio"
-            subLabel="5 más que el mes pasado"
+            trend={ticketTrend}
+            trendLabel="Comparado con el mes anterior"
+            subLabel={isLoading ? "" : `${Math.abs(ticketTrend)}% ${ticketTrend >= 0 ? "más" : "menos"} tickets nuevos`}
           />
           <KpiCard
             title="Tickets pendientes"
-            value={`${pendingTickets} Tickets`}
+            value={isLoading ? "Cargando..." : `${pendingTickets} Tickets`}
             icon={<Ticket size={22} />}
-            trend={-5}
-            trendLabel="Mas bajo del mes"
-            subLabel="10 menos que el mes pasado"
+            trend={pendingTrend}
+            trendLabel="Comparado con el mes anterior"
+            subLabel={isLoading ? "" : `${Math.abs(pendingTrend)}% ${pendingTrend >= 0 ? "más" : "menos"} pendientes`}
           />
           <KpiCard
             title="Total de Usuarios"
-            value={`${totalUsers} Usuarios`}
+            value={isLoading ? "Cargando..." : `${totalUsers} Usuarios`}
             icon={<Users size={22} />}
-            trend={15}
-            trendLabel="Mas alto del mes"
-            subLabel="20 usuarios nuevos"
+            trend={usersTrend}
+            trendLabel="Comparado con el mes anterior"
+            subLabel={isLoading ? "" : `${Math.abs(usersTrend)}% ${usersTrend >= 0 ? "más" : "menos"} registros`}
           />
         </div>
 
