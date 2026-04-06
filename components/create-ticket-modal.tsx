@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Monitor, Printer, Wifi, HelpCircle, UserCircle } from "lucide-react";
+import { X, Plus, Monitor, Printer, Wifi, HelpCircle, UserCircle, Users, Briefcase, Code } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TicketType } from "@/lib/mock-tickets";
+import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
+import { useToast } from "@/hooks/use-toast";
 
 const TICKET_TYPES = [
-  { id: "computo", label: "Computo", icon: Monitor },
+  { id: "computo", label: "PC", icon: Monitor },
   { id: "impresora", label: "Impresora", icon: Printer },
   { id: "red", label: "Red", icon: Wifi },
+  { id: "crm", label: "CRM", icon: Users },
+  { id: "programas", label: "Progra", icon: Code },
   { id: "otro", label: "Otro", icon: HelpCircle },
 ] as const;
 
@@ -23,21 +28,23 @@ interface CreateTicketModalProps {
   onClose: () => void;
   onAdd: (ticket: {
     description: string;
-    type: string;
+    type: TicketType;
     assignedMemberIds: number[];
     allArea: boolean;
     maxWaitMinutes: number;
   }) => void;
-  members: { id: number; full_name: string }[];
+  members: { id: number; full_name: string; avatar_icon?: string }[];
 }
 
 
-export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalProps) {
+export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicketModalProps) {
+  const { toast } = useToast();
   const [description, setDescription] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [allArea, setAllArea] = useState(false);
   const [waitIndex, setWaitIndex] = useState(1); // default 30mins
+  const [errors, setErrors] = useState<{ description?: string; type?: string }>({});
 
   if (!open) return null;
 
@@ -48,10 +55,29 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
   };
 
   const handleAdd = () => {
-    if (!description.trim() || !selectedType) return;
+    const newErrors: { description?: string; type?: string } = {};
+
+    if (!description.trim()) {
+      newErrors.description = "La descripción es requerida";
+    }
+    if (!selectedType) {
+      newErrors.type = "Debes seleccionar un tipo de error";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor, completa todos los campos requeridos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     onAdd({
       description,
-      type: selectedType,
+      type: selectedType as TicketType,
       assignedMemberIds: allArea ? members.map((m) => m.id) : selectedMembers,
       allArea,
       maxWaitMinutes: WAIT_STEPS[waitIndex].value,
@@ -62,6 +88,7 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
     setSelectedMembers([]);
     setAllArea(false);
     setWaitIndex(1);
+    setErrors({});
     onClose();
   };
 
@@ -109,9 +136,13 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
             className={cn(
               "w-full rounded-lg border border-input bg-background text-foreground text-sm px-3 py-2 resize-none",
               "placeholder:text-muted-foreground/70",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
+              "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors",
+              errors.description && "border-destructive focus:ring-destructive focus:border-destructive"
             )}
           />
+          {errors.description && (
+            <p className="text-xs text-destructive mt-1">{errors.description}</p>
+          )}
         </div>
 
         {/* Type */}
@@ -126,7 +157,8 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
                   "flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors text-[10px]",
                   selectedType === id
                     ? "border-ring bg-accent text-foreground"
-                    : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground",
+                  errors.type && "border-destructive"
                 )}
                 type="button"
               >
@@ -135,6 +167,9 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
               </button>
             ))}
           </div>
+          {errors.type && (
+            <p className="text-xs text-destructive mt-1">{errors.type}</p>
+          )}
         </div>
 
         {/* Members */}
@@ -160,7 +195,10 @@ export function CreateTicketModal({ open, onClose, onAdd }: CreateTicketModalPro
               members.map((m) => (
                 <label key={m.id} className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <UserCircle size={24} className="text-muted-foreground" />
+                    {(() => {
+                      const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
+                      return <Icon size={24} className="text-muted-foreground" />;
+                    })()}
                     <span className="text-sm text-foreground">{m.full_name}</span>
                   </div>
                   <input

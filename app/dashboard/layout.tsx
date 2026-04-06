@@ -42,8 +42,12 @@ export default async function DashboardLayout({
     <UserProvider initialUser={initialUser}>
       <div className="flex min-h-screen bg-background">
         <Sidebar />
-        {/* Offset main content by sidebar width */}
-        <main className="flex-1 ml-[230px] min-h-screen flex flex-col overflow-hidden">
+        {/* Responsive main content with sidebar offset */}
+        <main className="hidden md:flex flex-1 ml-[230px] min-h-screen flex-col overflow-hidden">
+          {children}
+        </main>
+        {/* Mobile full-width content */}
+        <main className="md:hidden flex-1 min-h-screen flex flex-col overflow-hidden">
           {children}
         </main>
       </div>

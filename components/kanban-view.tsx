@@ -14,6 +14,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -62,7 +63,6 @@ export interface KanbanTask {
   end_date: string;
   assigned_to: number[];
   team_id: number;
-  user_id: number;
 }
 
 interface DbTaskRow {
@@ -74,11 +74,10 @@ interface DbTaskRow {
   end_date: string;
   assigned_to: number[];
   team_id: number;
-  user_id: number;
   is_active?: boolean;
 }
 
-const ICON_MAP: Record<IconUserId, React.ElementType> = {
+export const ICON_MAP: Record<IconUserId, React.ElementType> = {
   Ghost,
   Rose,
   Rabbit,
@@ -133,8 +132,8 @@ function TaskCardContent({
   task: KanbanTask;
   members: KanbanMember[];
   isDragging?: boolean;
-  onEdit: (task: KanbanTask) => void;
-  onDelete: (taskId: string) => void;
+  onEdit?: (task: KanbanTask) => void;
+  onDelete?: (taskId: string) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -167,7 +166,7 @@ function TaskCardContent({
               <button
                 onClick={() => {
                   setShowMenu(false);
-                  onEdit(task);
+                  onEdit!(task);
                 }}
                 className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-foreground"
               >
@@ -176,7 +175,7 @@ function TaskCardContent({
               <button
                 onClick={() => {
                   setShowMenu(false);
-                  onDelete(task.id);
+                  onDelete!(task.id);
                 }}
                 className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-red-500"
               >
@@ -272,8 +271,8 @@ function SortableTaskCard({
       animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.18 }}
-      whileHover={{ scale: 1.015 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 0.97 }}
+      whileTap={{ scale: 0.97 }}
     >
       <TaskCardContent
         task={task}
@@ -305,9 +304,11 @@ function KanbanColumnPanel({
 }) {
   const Icon = config.icon;
   const taskIds = tasks.map((t) => t.id);
+  const { setNodeRef } = useDroppable({ id: config.id });
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
         "flex flex-col gap-3 min-w-[220px] flex-1 rounded-lg p-2 transition-colors",
         isOver ? "bg-accent/50 ring-1 ring-ring/20" : "bg-transparent"
@@ -325,27 +326,29 @@ function KanbanColumnPanel({
       </div>
 
       {/* Cards */}
-      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-3 overflow-y-auto min-h-[60px]">
-          <AnimatePresence mode="popLayout">
-            {tasks.map((task) => (
-              <SortableTaskCard
-                key={task.id}
-                task={task}
-                members={members}
-                onEdit={onEditTask}
-                onDelete={onDeleteTask}
-              />
-            ))}
-          </AnimatePresence>
+      <div className="min-h-[500px] flex flex-col gap-3">
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-3 overflow-y-auto">
+            <AnimatePresence mode="popLayout">
+              {tasks.map((task) => (
+                <SortableTaskCard
+                  key={task.id}
+                  task={task}
+                  members={members}
+                  onEdit={onEditTask}
+                  onDelete={onDeleteTask}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        </SortableContext>
 
-          {tasks.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border py-6 flex items-center justify-center">
-              <span className="text-muted-foreground text-xs">Sin tareas</span>
-            </div>
-          )}
-        </div>
-      </SortableContext>
+        {tasks.length === 0 && (
+          <div className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/50 bg-muted/5 flex items-center justify-center">
+            <span className="text-muted-foreground/50 text-sm">Arrastra una tarea aquí</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -365,6 +368,7 @@ function CreateTaskSidebar({
   task?: KanbanTask | null;
   members: KanbanMember[];
 }) {
+  const { toast } = useToast();
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [selectedMembers, setSelectedMembers] = useState<number[]>(task?.assigned_to ?? []);
@@ -372,6 +376,7 @@ function CreateTaskSidebar({
     task?.end_date ? task.end_date.split("T")[0] : ""
   );
   const [status, setStatus] = useState<KanbanColumn>(task?.status ?? "Tareas");
+  const [errors, setErrors] = useState<{ title?: string; description?: string; endDate?: string }>({});
 
   useEffect(() => {
     if (!task) return;
@@ -389,7 +394,28 @@ function CreateTaskSidebar({
   }
 
   function handleSave() {
-    if (!title.trim() || !description.trim() || !endDate) return;
+    const newErrors: { title?: string; description?: string; endDate?: string } = {};
+
+    if (!title.trim()) {
+      newErrors.title = "El título es requerido";
+    }
+    if (!description.trim()) {
+      newErrors.description = "La descripción es requerida";
+    }
+    if (!endDate) {
+      newErrors.endDate = "La fecha de vencimiento es requerida";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor, completa todos los campos requeridos.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const startDate = new Date().toISOString();
     const endDateTime = new Date(endDate).toISOString();
@@ -402,7 +428,6 @@ function CreateTaskSidebar({
       end_date: endDateTime,
       assigned_to: selectedMembers,
       team_id: task?.team_id ?? 0,
-      user_id: task?.user_id ?? 0,
     };
 
     if (task && onUpdate) {
@@ -459,8 +484,9 @@ function CreateTaskSidebar({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Nombre de la tarea..."
-            className={inputClass}
+            className={cn(inputClass, errors.title && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
+          {errors.title && <p className="text-destructive text-xs">{errors.title}</p>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -470,8 +496,9 @@ function CreateTaskSidebar({
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             placeholder="Detalles de la tarea..."
-            className={cn(inputClass, "resize-none leading-relaxed")}
+            className={cn(inputClass, "resize-none leading-relaxed", errors.description && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
+          {errors.description && <p className="text-destructive text-xs">{errors.description}</p>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -495,8 +522,9 @@ function CreateTaskSidebar({
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className={inputClass}
+            className={cn(inputClass, errors.endDate && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
+          {errors.endDate && <p className="text-destructive text-xs">{errors.endDate}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -560,6 +588,23 @@ export function KanbanView() {
   const [myTeamId, setMyTeamId] = useState<number | null>(null);
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState<string>("");
+
+  const onEdit = (task: KanbanTask) => {
+    setEditTask(task);
+    setShowCreate(true);
+  };
+
+  const onDelete = async (taskId: string) => {
+    if (!confirm("¿Eliminar esta tarea?")) return;
+    try {
+      await supabase.from("tasks").delete().eq("id", taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      toast({ title: "Tarea eliminada" });
+    } catch (error) {
+      console.error("Error deleting task", error);
+      toast({ title: "Error eliminando tarea", variant: "destructive" });
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -626,7 +671,7 @@ export function KanbanView() {
 
   async function fetchTasks(teamId: number) {
     let query = supabase
-      .from<DbTaskRow>("tasks")
+      .from("tasks")
       .select("*")
       .eq("is_active", true)
       .eq("team_id", teamId)
@@ -649,7 +694,6 @@ export function KanbanView() {
       end_date: row.end_date,
       assigned_to: row.assigned_to ?? [],
       team_id: row.team_id,
-      user_id: row.user_id,
     }));
 
     setTasks(mapped);
@@ -727,7 +771,7 @@ export function KanbanView() {
   }
 
   async function handleAddTask(task: Omit<KanbanTask, "id" | "dbId">) {
-    if (!myUserId || !myTeamId) return;
+    if (!myTeamId) return;
 
     const { error } = await supabase.from("tasks").insert([
       {
@@ -738,7 +782,6 @@ export function KanbanView() {
         end_date: task.end_date,
         assigned_to: task.assigned_to,
         team_id: myTeamId,
-        user_id: myUserId,
         is_active: true,
       },
     ]);
@@ -859,7 +902,12 @@ export function KanbanView() {
             <DragOverlay>
               {activeTask ? (
                 <div className="rotate-1 shadow-2xl opacity-90 w-[220px]">
-                  <TaskCardContent task={activeTask} members={members} />
+                  <TaskCardContent
+                    task={activeTask}
+                    members={members}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                  />
                 </div>
               ) : null}
             </DragOverlay>

@@ -37,6 +37,7 @@ import {
   TypeIcon,
 } from "@/components/ticket-cells";
 import { CreateTicketModal } from "@/components/create-ticket-modal";
+import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
 
 /* ─── Client-only time ────────────────────────────────────────────────────────── */
 
@@ -58,7 +59,7 @@ function ClientTime({ iso }: { iso: string }) {
 type Tab = "Todos" | "Pendientes" | "Completados";
 type SortKey = "default" | "prioridad" | "llegada";
 
-type TicketType = "computo" | "impresora" | "red" | "otro";
+type TicketType = "computo" | "impresora" | "red" | "crm" | "programas" | "otro";
 type TicketStatus = "Pendiente" | "En proceso" | "Terminada";
 type TicketPriority = "Alta" | "Media" | "Baja" | "Vencido";
 
@@ -75,6 +76,7 @@ interface Ticket {
   usuario: string;
   user_id: number;
   team_id: number;
+  user_avatar_icon: IconUserId;
 }
 
 interface DbTicketRow {
@@ -88,7 +90,7 @@ interface DbTicketRow {
   team_id: number;
   user_id: number;
   is_active?: boolean;
-  users?: { full_name: string };
+  users?: { full_name: string; avatar_icon: IconUserId };
   teams?: { name: string };
 }
 
@@ -142,7 +144,7 @@ function StatusDropdown({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 mt-1 w-full rounded-xl border border-border bg-popover z-30 overflow-hidden"
+            className="absolute left-0 mt-1 w-full rounded-xl border border-border bg-popover z-50 overflow-hidden shadow-lg"
           >
             {OPTIONS.map((opt) => (
               <button
@@ -244,7 +246,7 @@ function SortableRow({
         />
       </td>
 
-      <td className="px-3 py-3 max-w-55">
+      <td className="px-3 py-3 max-w-55 min-w-[200px]">
         <button
           onClick={onToggleExpand}
           className="text-left w-full"
@@ -264,18 +266,18 @@ function SortableRow({
         </button>
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[80px]">
         <TypeIcon type={ticket.type} />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[80px]">
         <PriorityBadge
           priority={ticket.priority}
           expired={expired}
         />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[100px]">
         <RemainingBar
           arrivalTime={ticket.arrival_time}
           maxWaitMinutes={ticket.max_wait_minutes}
@@ -283,7 +285,7 @@ function SortableRow({
         />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[120px]">
         {isAdmin ? (
           <StatusDropdown
             value={ticket.status}
@@ -295,25 +297,28 @@ function SortableRow({
         )}
       </td>
 
-      <td className="px-3 py-3 text-foreground text-xs tabular-nums whitespace-nowrap">
+      <td className="px-3 py-3 text-foreground text-xs tabular-nums whitespace-nowrap min-w-[80px]">
         <ClientTime iso={ticket.arrival_time} />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[100px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
           <Users size={12} className="text-zinc-500" />
           {ticket.area}
         </span>
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[120px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
-          <UserCircle size={14} className="text-zinc-500" />
+          {(() => {
+            const UserIcon = ICON_MAP[ticket.user_avatar_icon] || UserCircle;
+            return <UserIcon size={14} className="text-zinc-500" />;
+          })()}
           {ticket.usuario}
         </span>
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[80px]">
         {(isAdmin || ticket.user_id === myUserId) && (
           <button
             type="button"
@@ -452,7 +457,7 @@ export function TicketsView() {
   const [nowMs, setNowMs] = useState(0);
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [myTeamId, setMyTeamId] = useState<number | null>(null);
-  const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string }[]>([]);
+  const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string; avatar_icon?: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   // IMPORTANT: avoid dnd-kit SSR hydration mismatches (aria-describedby IDs)
@@ -539,7 +544,7 @@ export function TicketsView() {
 
     const { data, error } = await supabase
       .from("users")
-      .select("id, full_name")
+      .select("id, full_name, avatar_icon")
       .eq("team_id", teamId)
       .eq("is_active", true);
 
@@ -556,8 +561,8 @@ export function TicketsView() {
     setLoading(true);
     try {
       let query = supabase
-        .from<DbTicketRow>("tickets")
-        .select("*, users(full_name), teams(name)")
+        .from("tickets")
+        .select("*, users(full_name, avatar_icon), teams(name)")
         .eq("is_active", true)
         .order("arrival_time", { ascending: false });
 
@@ -589,6 +594,7 @@ export function TicketsView() {
         usuario: row.users?.full_name ?? "",
         user_id: row.user_id,
         team_id: row.team_id,
+        user_avatar_icon: row.users?.avatar_icon ?? "Users",
       } as Ticket));
 
       setTickets(mapped);
@@ -610,7 +616,7 @@ export function TicketsView() {
         console.warn("No auth session, using context user", authError);
       }
 
-      const email = authData?.data?.user?.email ?? user.email;
+      const email = authData?.user?.email ?? user.email;
       if (email) {
         const { data: userRow, error: userError } = await supabase
           .from("users")
@@ -856,7 +862,7 @@ export function TicketsView() {
 
       {/* Desktop table (client-only to avoid dnd-kit hydration mismatches) */}
       <div className="hidden md:block flex-1 px-8 overflow-auto">
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-xl border border-border overflow-hidden relative">
           {mounted ? (
             <DndContext
               sensors={sensors}
@@ -876,44 +882,47 @@ export function TicketsView() {
                         aria-label="Seleccionar todos"
                       />
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Check
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[200px]">
+                      Descripción
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[80px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <LayoutGrid size={12} />
                         Tipo
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[80px]">
                       Prioridad
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[100px]">
                       Restante
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[120px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <LayoutGrid size={12} />
                         Status
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[80px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <Clock size={12} />
                         Llegada
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[100px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <Users size={12} />
                         Área
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[120px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <UserCircle size={12} />
                         Usuario
                       </span>
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[80px]">
+                      Acciones
                     </th>
                   </tr>
                 </thead>

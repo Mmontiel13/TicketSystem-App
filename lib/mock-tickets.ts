@@ -1,6 +1,6 @@
-export type TicketType = "computo" | "impresora" | "red" | "otro";
+export type TicketType = "computo" | "impresora" | "red" | "crm" | "programas" | "otro";
 export type TicketStatus = "Pendiente" | "En proceso" | "Terminada";
-export type TicketPriority = "Alta" | "Media" | "Baja";
+export type TicketPriority = "Alta" | "Media" | "Baja" | "Vencido";
 
 export interface Ticket {
   id: string;

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 
 /* ─── Icon picker config ────────────────────────────────────────────────────── */
@@ -451,6 +452,7 @@ function AddMemberModal({
   initialUser?: EditingUser;
   members?: TeamMember[];
 }) {
+  const { toast } = useToast();
   const isEditMode = !!initialUser;
   const [memberName, setMemberName] = useState(initialUser?.full_name ?? "");
   const [memberEmail, setMemberEmail] = useState(initialUser?.email ?? "");
@@ -459,9 +461,38 @@ function AddMemberModal({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; email?: string; icon?: string }>({});
+
+  const isValid = memberName.trim() && memberEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim()) && selectedIcon;
 
   async function handleSubmit() {
-    if (!memberName.trim() || !memberEmail.trim()) return;
+    const newErrors: { name?: string; email?: string; icon?: string } = {};
+
+    if (!memberName.trim()) {
+      newErrors.name = "El nombre completo es requerido";
+    }
+    if (!memberEmail.trim()) {
+      newErrors.email = "El correo electrónico es requerido";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(memberEmail.trim())) {
+        newErrors.email = "Formato de correo electrónico inválido";
+      }
+    }
+    if (!selectedIcon) {
+      newErrors.icon = "Debes seleccionar un icono de avatar";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor, completa todos los campos requeridos correctamente.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const trimmedEmail = memberEmail.trim().toLowerCase();
 
@@ -478,6 +509,11 @@ function AddMemberModal({
     if (emailExists) {
       setFeedback("Este correo ya está registrado en otro usuario.");
       setIsSuccess(false);
+      toast({
+        title: "Correo duplicado",
+        description: "Este correo ya está registrado en otro usuario.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -491,23 +527,46 @@ function AddMemberModal({
         const result = await onUpdate(initialUser.id, memberName.trim(), trimmedEmail, selectedIcon);
         if (!result.success) {
           setFeedback(result.message || "No se pudo actualizar el miembro.");
+          toast({
+            title: "Error al actualizar",
+            description: result.message || "No se pudo actualizar el miembro.",
+            variant: "destructive",
+          });
           return;
         }
         setFeedback(result.message);
         setIsSuccess(true);
+        toast({
+          title: "Miembro actualizado",
+          description: result.message,
+        });
       } else {
         const result = await onAdd(memberName.trim(), trimmedEmail, selectedIcon);
         if (!result.success) {
           setFeedback(result.message || "No se pudo agregar el miembro.");
+          toast({
+            title: "Error al agregar",
+            description: result.message || "No se pudo agregar el miembro.",
+            variant: "destructive",
+          });
           return;
         }
         setFeedback(result.message);
         setCreatedPassword(result.password ?? null);
         setIsSuccess(true);
+        toast({
+          title: "Miembro agregado",
+          description: result.message,
+        });
       }
     } catch (error) {
       console.error(isEditMode ? "Error al actualizar integrante" : "Error al agregar integrante", error);
       setFeedback(isEditMode ? "Error desconocido al actualizar integrante." : "Error desconocido al agregar integrante.");
+      toast({
+        title: "Error inesperado",
+        description: isEditMode ? "Error desconocido al actualizar integrante." : "Error desconocido al agregar integrante.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -546,9 +605,10 @@ function AddMemberModal({
             value={memberName}
             onChange={(e) => setMemberName(e.target.value)}
             placeholder="Nombre completo"
-            className={inputClass}
+            className={cn(inputClass, errors.name && "border-destructive focus:ring-destructive focus:border-destructive")}
             autoFocus
           />
+          {errors.name && <p className="text-destructive text-xs">{errors.name}</p>}
         </div>
 
         <div className="flex flex-col gap-1 mb-3">
@@ -558,8 +618,9 @@ function AddMemberModal({
             value={memberEmail}
             onChange={(e) => setMemberEmail(e.target.value)}
             placeholder="correo@ejemplo.com"
-            className={inputClass}
+            className={cn(inputClass, errors.email && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
+          {errors.email && <p className="text-destructive text-xs">{errors.email}</p>}
         </div>
 
         <div className="flex flex-col gap-1 mb-4">
@@ -609,7 +670,7 @@ function AddMemberModal({
             onClick={handleSubmit}
             className={cn(primaryButtonClass, "w-full")}
             type="button"
-            disabled={isSaving}
+            disabled={isSaving || !isValid}
           >
             <Plus size={14} />
             {isSaving
