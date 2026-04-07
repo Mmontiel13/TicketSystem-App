@@ -65,18 +65,6 @@ export interface KanbanTask {
   team_id: number;
 }
 
-interface DbTaskRow {
-  id: number;
-  title: string;
-  description: string;
-  status: KanbanColumn;
-  start_date: string;
-  end_date: string;
-  assigned_to: number[];
-  team_id: number;
-  is_active?: boolean;
-}
-
 export const ICON_MAP: Record<IconUserId, React.ElementType> = {
   Ghost,
   Rose,
@@ -95,9 +83,9 @@ interface ColumnConfig {
 }
 
 const COLUMNS: ColumnConfig[] = [
-  { id: "Tareas", icon: ListTodo, iconClass: "text-muted-foreground" },
-  { id: "En proceso", icon: Loader, iconClass: "text-muted-foreground animate-spin" },
-  { id: "Pendiente", icon: MinusCircle, iconClass: "text-muted-foreground" },
+  { id: "Tareas", icon: ListTodo, iconClass: "text-foreground" },
+  { id: "En proceso", icon: Loader, iconClass: "text-foreground animate-spin" },
+  { id: "Pendiente", icon: MinusCircle, iconClass: "text-foreground" },
   {
     id: "Terminada",
     icon: CheckCircle2,
@@ -120,7 +108,7 @@ const inputClass =
 
 const checkboxClass = "w-4 h-4 rounded border-border accent-primary cursor-pointer";
 
-/* ─── TaskCard (glassmorphism style) ─────────────────────────────────────────── */
+/* ─── TaskCard ───────────────────────────────────────────────────────────────── */
 
 function TaskCardContent({
   task,
@@ -143,15 +131,15 @@ function TaskCardContent({
   return (
     <div
       className={cn(
-        "rounded-lg border border-white/20 bg-white/10 backdrop-blur-md p-3 flex flex-col gap-2 select-none",
+        "rounded-lg border border-border bg-card p-3 flex flex-col gap-2 select-none",
         isDragging && "opacity-50 ring-1 ring-ring/20"
       )}
     >
       <div className="flex items-center justify-between">
-        <GripVertical size={14} className="text-white/50 cursor-grab" />
+        <GripVertical size={14} className="text-muted-foreground cursor-grab" />
         <div className="relative">
           <button
-            className="text-white/50 hover:text-white transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Opciones"
             onClick={(e) => {
               e.stopPropagation();
@@ -162,7 +150,7 @@ function TaskCardContent({
             <MoreHorizontal size={14} />
           </button>
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-28 rounded-lg border border-white/20 bg-popover/95 backdrop-blur-md text-xs shadow-lg z-20">
+            <div className="absolute right-0 mt-1 w-28 rounded-lg border border-border bg-card text-xs shadow-lg z-20">
               <button
                 onClick={() => {
                   setShowMenu(false);
@@ -187,27 +175,27 @@ function TaskCardContent({
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="text-white font-medium text-xs">{task.title}</p>
-        <p className="text-white/70 text-[11px] leading-relaxed">{descSnippet}</p>
+        <p className="text-foreground font-medium text-xs">{task.title}</p>
+        <p className="text-foreground/70 text-[11px] leading-relaxed">{descSnippet}</p>
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-white/50 text-[10px]">Inicio</span>
-        <span className="text-white/70 text-[11px] tabular-nums">
+        <span className="text-foreground/50 text-[10px]">Inicio</span>
+        <span className="text-foreground/70 text-[11px] tabular-nums">
           {new Date(task.start_date).toLocaleDateString()}
         </span>
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-white/50 text-[10px]">Vencimiento</span>
-        <span className="text-white/70 text-[11px] tabular-nums">
+        <span className="text-foreground/50 text-[10px]">Vencimiento</span>
+        <span className="text-foreground/70 text-[11px] tabular-nums">
           {new Date(task.end_date).toLocaleDateString()}
         </span>
       </div>
 
       {assignedMembers.length > 0 && (
-        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-white/10">
-          <span className="text-white/50 text-[10px]">Asignado:</span>
+        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border">
+          <span className="text-foreground/50 text-[10px]">Asignado:</span>
           <div className="flex -space-x-2">
             {assignedMembers.slice(0, 4).map((m) => {
               const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
@@ -215,14 +203,14 @@ function TaskCardContent({
                 <div
                   key={m.id}
                   title={m.full_name}
-                  className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center shrink-0"
+                  className="w-6 h-6 rounded-full bg-muted border border-border flex items-center justify-center shrink-0"
                 >
-                  <Icon size={14} className="text-white/70" />
+                  <Icon size={14} className="text-foreground/70" />
                 </div>
               );
             })}
             {assignedMembers.length > 4 && (
-              <div className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-[10px] text-white/70">
+              <div className="w-6 h-6 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] text-foreground/70">
                 +{assignedMembers.length - 4}
               </div>
             )}
@@ -271,8 +259,8 @@ function SortableTaskCard({
       animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.18 }}
-      whileHover={{ scale: 0.97 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ scale: 1.015 }}
+      whileTap={{ scale: 0.98 }}
     >
       <TaskCardContent
         task={task}
@@ -319,7 +307,7 @@ function KanbanColumnPanel({
         <div className="flex items-center gap-2">
           <Icon size={15} className={config.iconClass} />
           <span className="text-foreground text-sm font-medium">{config.id}</span>
-          <span className="text-muted-foreground text-xs tabular-nums ml-1">
+          <span className="text-foreground text-xs tabular-nums ml-1">
             {tasks.length}
           </span>
         </div>
@@ -344,8 +332,8 @@ function KanbanColumnPanel({
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/50 bg-muted/5 flex items-center justify-center">
-            <span className="text-muted-foreground/50 text-sm">Arrastra una tarea aquí</span>
+          <div className="flex-1 rounded-lg border-2 border-dashed border-foreground/30 bg-muted/5 flex items-center justify-center">
+            <span className="text-foreground/50 text-sm">Arrastra una tarea aquí</span>
           </div>
         )}
       </div>
@@ -462,14 +450,14 @@ function CreateTaskSidebar({
             <h2 className="text-foreground font-semibold text-base">
               {task ? "Editando tarea" : "Agregando tarea"}
             </h2>
-            <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+            <p className="text-foreground text-xs mt-1 leading-relaxed">
               Completa los detalles y asigna miembros del equipo
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0"
+            className="text-foreground hover:text-foreground transition-colors mt-0.5 shrink-0"
             aria-label="Cerrar"
             type="button"
           >
@@ -478,7 +466,7 @@ function CreateTaskSidebar({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Título</label>
+          <label className="text-foreground text-xs font-medium">Título</label>
           <input
             type="text"
             value={title}
@@ -490,7 +478,7 @@ function CreateTaskSidebar({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Descripción</label>
+          <label className="text-foreground text-xs font-medium">Descripción</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -502,7 +490,7 @@ function CreateTaskSidebar({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Estado</label>
+          <label className="text-foreground text-xs font-medium">Estado</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as KanbanColumn)}
@@ -517,7 +505,7 @@ function CreateTaskSidebar({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Fecha de vencimiento</label>
+          <label className="text-foreground text-xs font-medium">Fecha de vencimiento</label>
           <input
             type="date"
             value={endDate}
@@ -532,14 +520,14 @@ function CreateTaskSidebar({
 
           <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
             {members.length === 0 ? (
-              <p className="text-muted-foreground text-xs">No hay miembros en el área.</p>
+              <p className="text-foreground text-xs">No hay miembros en el área.</p>
             ) : (
               members.map((m) => {
                 const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
                 return (
                   <div key={m.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Icon size={18} className="text-muted-foreground" />
+                      <Icon size={18} className="text-foreground" />
                       <span className="text-foreground text-xs">{m.full_name}</span>
                     </div>
                     <input
@@ -576,7 +564,6 @@ export function KanbanView() {
   const { user } = useUser();
   const supabase = createClient();
   const { toast } = useToast();
-  const isAdmin = user.role === "admin";
 
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [members, setMembers] = useState<KanbanMember[]>([]);
@@ -597,6 +584,7 @@ export function KanbanView() {
   const onDelete = async (taskId: string) => {
     if (!confirm("¿Eliminar esta tarea?")) return;
     try {
+      // CORREGIDO: Usa tabla 'tasks' en lugar de 'tickets'
       await supabase.from("tasks").delete().eq("id", taskId);
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
       toast({ title: "Tarea eliminada" });
@@ -670,10 +658,10 @@ export function KanbanView() {
   }
 
   async function fetchTasks(teamId: number) {
+    // CORREGIDO: Obtiene tareas de tabla 'tasks' en lugar de 'tickets'
     let query = supabase
       .from("tasks")
       .select("*")
-      .eq("is_active", true)
       .eq("team_id", teamId)
       .order("start_date", { ascending: false });
 
@@ -708,6 +696,7 @@ export function KanbanView() {
     if (task) setActiveTask(task);
   }
 
+  // MODIFICADO: Actualiza el estado en la UI inmediatamente
   function onDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over) return;
@@ -726,11 +715,13 @@ export function KanbanView() {
     const activeTask = tasks.find((t) => t.id === activeId);
     if (!activeTask || activeTask.status === targetColumn) return;
 
+    // Actualizar UI inmediatamente
     setTasks((prev) =>
       prev.map((t) => (t.id === activeId ? { ...t, status: targetColumn } : t))
     );
   }
 
+  // MODIFICADO: Guarda el cambio de estado en la BD cuando termina el drag
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveTask(null);
@@ -741,33 +732,52 @@ export function KanbanView() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    if (activeId === overId) return;
-
     const task = tasks.find((t) => t.id === activeId);
     if (!task) return;
 
-    const { error } = await supabase
-      .from("tasks")
-      .update({ status: task.status })
-      .eq("id", task.dbId);
+    // NUEVO: Actualizar el estado en la BD
+    try {
+      const { error } = await supabase
+        .from("tasks") // CORREGIDO: Usa tabla 'tasks'
+        .update({ status: task.status })
+        .eq("id", task.dbId);
 
-    if (error) {
-      toast({
-        title: "Error al actualizar",
-        description: "No se pudo cambiar el estado.",
-      });
-      await fetchTasks(myTeamId!);
-      return;
-    }
-
-    setTasks((prev) => {
-      const activeIndex = prev.findIndex((t) => t.id === activeId);
-      const overIndex = prev.findIndex((t) => t.id === overId);
-      if (activeIndex !== -1 && overIndex !== -1) {
-        return arrayMove(prev, activeIndex, overIndex);
+      if (error) {
+        console.error("Error updating task status:", error);
+        toast({
+          title: "Error al actualizar",
+          description: "No se pudo cambiar el estado de la tarea.",
+          variant: "destructive",
+        });
+        // Recargar tareas si falla
+        await fetchTasks(myTeamId!);
+        return;
       }
-      return prev;
-    });
+
+      toast({
+        title: "Estado actualizado",
+        description: `Tarea movida a ${task.status}`,
+      });
+
+      // Reordenar si se mueve a otra tarea
+      if (activeId !== overId) {
+        setTasks((prev) => {
+          const activeIndex = prev.findIndex((t) => t.id === activeId);
+          const overIndex = prev.findIndex((t) => t.id === overId);
+          if (activeIndex !== -1 && overIndex !== -1) {
+            return arrayMove(prev, activeIndex, overIndex);
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.error("Exception updating task:", err);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar el cambio.",
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleAddTask(task: Omit<KanbanTask, "id" | "dbId">) {
@@ -782,7 +792,6 @@ export function KanbanView() {
         end_date: task.end_date,
         assigned_to: task.assigned_to,
         team_id: myTeamId,
-        is_active: true,
       },
     ]);
 
@@ -802,7 +811,7 @@ export function KanbanView() {
 
   async function handleUpdateTask(task: KanbanTask) {
     const { error } = await supabase
-      .from("tasks")
+      .from("tasks") // CORREGIDO: Usa tabla 'tasks'
       .update({
         title: task.title,
         description: task.description,
@@ -834,8 +843,8 @@ export function KanbanView() {
     if (!task) return;
 
     const { error } = await supabase
-      .from("tasks")
-      .update({ is_active: false })
+      .from("tasks") // CORREGIDO: Usa tabla 'tasks'
+      .delete()
       .eq("id", task.dbId);
 
     if (error) {
@@ -875,7 +884,7 @@ export function KanbanView() {
 
         {loading ? (
           <div className="flex items-center justify-center flex-1">
-            <span className="text-muted-foreground">Cargando tareas...</span>
+            <span className="text-foreground">Cargando tareas...</span>
           </div>
         ) : (
           <DndContext
