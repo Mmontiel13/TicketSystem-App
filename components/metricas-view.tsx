@@ -16,13 +16,14 @@ import {
   Ticket,
   Users,
   Clock,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/user-context";
 
 // ─── Fetch data from database ────────────────────────────────────────────────────
-// CORREGIDO: Usa 'arrival_time' en lugar de 'created_at' para tickets
 async function fetchTicketsMetrics(supabase: any, teamId: number) {
   try {
     const { data, error } = await supabase
@@ -36,7 +37,6 @@ async function fetchTicketsMetrics(supabase: any, teamId: number) {
     }
 
     const total = data?.length || 0;
-    // Contar tickets con status = "Pendiente"
     const pending = data?.filter((t: any) => t.status === "Pendiente").length || 0;
 
     console.log(`📊 Tickets - Total: ${total}, Pending: ${pending}`);
@@ -47,7 +47,6 @@ async function fetchTicketsMetrics(supabase: any, teamId: number) {
   }
 }
 
-// Obtiene métricas de usuarios
 async function fetchUsersMetrics(supabase: any, teamId: number) {
   try {
     const { data, error } = await supabase
@@ -69,8 +68,7 @@ async function fetchUsersMetrics(supabase: any, teamId: number) {
   }
 }
 
-// ─── Generate chart data from database ─────────────────────────────────────────
-// CORREGIDO: Usa 'arrival_time' para tickets y 'created_at' para usuarios
+// ─── Generate chart data from database ───────────────────────��─────────────────
 async function generateChartDataFromDB(
   supabase: any, 
   teamId: number, 
@@ -80,7 +78,6 @@ async function generateChartDataFromDB(
   const data: { label: string; value: number }[] = [];
   const now = new Date();
 
-  // Crear array de fechas para los últimos N días
   const dateArray = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now);
@@ -91,15 +88,13 @@ async function generateChartDataFromDB(
 
   try {
     if (dataTab === "Tickets") {
-      // CORREGIDO: Obtener tickets usando 'arrival_time' en lugar de 'created_at'
       const { data: tickets, error } = await supabase
         .from("tickets")
-        .select("id, status, arrival_time") // CAMBIO: arrival_time en lugar de created_at
+        .select("id, status, arrival_time")
         .eq("team_id", teamId);
 
       if (error) {
         console.error("Error fetching tickets for chart:", error.message);
-        // Retornar datos vacíos con estructura correcta
         return dateArray.map((date, index) => ({
           label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1 
             ? `${date.toLocaleDateString("es-MX")}` 
@@ -108,10 +103,8 @@ async function generateChartDataFromDB(
         }));
       }
 
-      // Contar tickets pendientes acumulados por cada día
       dateArray.forEach((date, index) => {
         const count = tickets?.filter((t: any) => {
-          // CORREGIDO: Validar arrival_time en lugar de created_at
           if (!t.arrival_time) return false;
           const ticketDate = new Date(t.arrival_time);
           ticketDate.setHours(0, 0, 0, 0);
@@ -131,7 +124,6 @@ async function generateChartDataFromDB(
 
       console.log(`📈 Chart data (Tickets):`, data.slice(0, 3), "...");
     } else {
-      // MANTIENE: Obtener usuarios del equipo con 'created_at'
       const { data: users, error } = await supabase
         .from("users")
         .select("id, is_active, created_at")
@@ -147,7 +139,6 @@ async function generateChartDataFromDB(
         }));
       }
 
-      // Contar usuarios activos acumulados por cada día
       dateArray.forEach((date, index) => {
         const count = users?.filter((u: any) => {
           if (!u.created_at) return false;
@@ -193,32 +184,34 @@ function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardPro
   const isUp = trend >= 0;
 
   return (
-    <div className="flex-1 rounded-2xl border border-border bg-card p-5 flex flex-col gap-3 min-w-0">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-foreground font-medium">{title}</span>
+    <div className="flex-1 min-w-0 rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] sm:text-xs text-foreground font-medium truncate">{title}</span>
         <span
           className={cn(
-            "flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full",
+            "flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0",
             isUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600",
             isUp ? "dark:text-emerald-400" : "dark:text-red-400",
           )}
         >
-          {isUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+          {isUp ? <TrendingUp size={9} className="sm:hidden" /> : <TrendingDown size={9} className="sm:hidden" />}
+          {isUp ? <TrendingUp size={11} className="hidden sm:block" /> : <TrendingDown size={11} className="hidden sm:block" />}
           {isUp ? "+" : ""}
           {trend}%
         </span>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        <span className="text-muted-foreground">{icon}</span>
-        <span className="text-foreground text-2xl font-bold tracking-tight">{value}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground text-sm sm:text-base shrink-0">{icon}</span>
+        <span className="text-foreground text-lg sm:text-2xl font-bold tracking-tight truncate">{value}</span>
       </div>
 
-      <div className="flex items-center gap-2 border-t border-border pt-3">
-        <Clock size={12} className="text-muted-foreground shrink-0" />
-        <div>
-          <p className="text-[11px] text-foreground/70 leading-none">{trendLabel}</p>
-          <p className="text-[11px] text-foreground/70 mt-0.5">{subLabel}</p>
+      <div className="flex items-center gap-2 border-t border-border pt-2 sm:pt-3">
+        <Clock size={10} className="text-muted-foreground shrink-0 sm:hidden" />
+        <Clock size={12} className="text-muted-foreground shrink-0 hidden sm:block" />
+        <div className="min-w-0">
+          <p className="text-[9px] sm:text-[11px] text-foreground/70 leading-tight truncate">{trendLabel}</p>
+          <p className="text-[9px] sm:text-[11px] text-foreground/70 mt-0.5 truncate">{subLabel}</p>
         </div>
       </div>
     </div>
@@ -235,8 +228,8 @@ function ChartTooltip({ active, payload, label, dataTab }: any) {
   const unit = dataTab === "Tickets" ? "tickets" : "usuarios";
 
   return (
-    <div className="px-3 py-2 rounded-xl border border-border bg-popover/90 backdrop-blur-md text-xs text-popover-foreground shadow-lg">
-      {label && <p className="text-foreground/70 mb-1">{label}</p>}
+    <div className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-border bg-popover/90 backdrop-blur-md text-[10px] sm:text-xs text-popover-foreground shadow-lg">
+      {label && <p className="text-foreground/70 mb-0.5 sm:mb-1">{label}</p>}
       <p className="font-semibold text-foreground">{value} {unit}</p>
     </div>
   );
@@ -256,6 +249,7 @@ export function MetricasView() {
   const [chartData, setChartData] = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -263,7 +257,6 @@ export function MetricasView() {
         setLoading(true);
         setError(null);
 
-        // Obtener el equipo del usuario logueado
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("team_id")
@@ -284,16 +277,13 @@ export function MetricasView() {
         const currentTeamId = Number(userData.team_id);
         console.log(`🏢 Loading metrics for team: ${currentTeamId}`);
 
-        // Cargar métricas de tickets
         const ticketsMetrics = await fetchTicketsMetrics(supabase, currentTeamId);
         setTotalTickets(ticketsMetrics.total);
         setPendingTickets(ticketsMetrics.pending);
 
-        // Cargar métricas de usuarios
         const usersCount = await fetchUsersMetrics(supabase, currentTeamId);
         setTotalUsers(usersCount);
 
-        // Cargar datos del gráfico
         const chartDataResult = await generateChartDataFromDB(supabase, currentTeamId, range, dataTab);
         setChartData(chartDataResult);
       } catch (err) {
@@ -311,10 +301,10 @@ export function MetricasView() {
 
   if (user.role !== "admin") {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-xl font-semibold text-foreground">Acceso denegado</h2>
-          <p className="text-foreground/70">
+      <div className="flex items-center justify-center h-screen px-4">
+        <div className="rounded-lg border border-border bg-card p-6 sm:p-8 text-center max-w-md">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Acceso denegado</h2>
+          <p className="text-foreground/70 text-sm mt-2">
             No tienes permisos suficientes para ver las métricas.
           </p>
         </div>
@@ -329,30 +319,45 @@ export function MetricasView() {
   const gridStroke = isDark ? "#18181b" : "#e5e7eb";
 
   const RANGE_LABELS: Record<RangeKey, string> = {
+    90: "90 días",
+    30: "30 días",
+    7: "7 días",
+  };
+
+  const RANGE_LABELS_FULL: Record<RangeKey, string> = {
     90: "Últimos 90 días",
     30: "Últimos 30 días",
     7: "Últimos 7 días",
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center px-8 py-4 border-b border-border">
-        <h1 className="text-foreground text-xl font-semibold">Métricas</h1>
+    <div className="flex flex-col h-full bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+        <h1 className="text-foreground text-base sm:text-lg md:text-xl font-semibold">Métricas</h1>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-1.5 hover:bg-accent rounded-lg transition-colors"
+          aria-label="Menú"
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </div>
 
-      <div className="flex-1 px-8 py-6 flex flex-col gap-5 overflow-auto">
+      {/* Content */}
+      <div className="flex-1 px-3 sm:px-4 md:px-8 py-4 sm:py-6 flex flex-col gap-3 sm:gap-5 overflow-auto">
         {/* Error message */}
         {error && (
-          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600">
+          <div className="p-3 sm:p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs sm:text-sm">
             {error}
           </div>
         )}
 
-        {/* KPI cards row */}
-        <div className="flex gap-4">
+        {/* KPI cards row - responsive grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
           <KpiCard
             title="Total de Tickets"
-            value={`${totalTickets} Tickets`}
+            value={`${totalTickets}`}
             icon={<Ticket size={22} />}
             trend={3.2}
             trendLabel="Dentro del promedio"
@@ -360,7 +365,7 @@ export function MetricasView() {
           />
           <KpiCard
             title="Tickets pendientes"
-            value={`${pendingTickets} Tickets`}
+            value={`${pendingTickets}`}
             icon={<Ticket size={22} />}
             trend={-5}
             trendLabel="Mas bajo del mes"
@@ -368,7 +373,7 @@ export function MetricasView() {
           />
           <KpiCard
             title="Total de Usuarios"
-            value={`${totalUsers} Usuarios`}
+            value={`${totalUsers}`}
             icon={<Users size={22} />}
             trend={15}
             trendLabel="Mas alto del mes"
@@ -377,31 +382,34 @@ export function MetricasView() {
         </div>
 
         {/* Chart card */}
-        <div className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-foreground font-semibold text-base">
+        <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 min-h-[350px] sm:min-h-[450px]">
+          {/* Header section - responsive */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-foreground font-semibold text-sm sm:text-base break-words">
                 {dataTab === "Tickets" 
                   ? "Total de Tickets Pendientes" 
                   : "Total de Usuarios Registrados"}
               </h2>
-              <p className="text-foreground/70 text-xs mt-0.5">
+              <p className="text-foreground/70 text-xs sm:text-sm mt-1">
                 Total de los últimos{" "}
                 {range === 90 ? "3 meses" : range === 30 ? "30 días" : "7 días"}
               </p>
             </div>
 
-            <div className="flex items-center gap-1 bg-muted border border-border rounded-xl p-0.5">
+            {/* Range buttons - responsive */}
+            <div className="flex items-center gap-0.5 bg-muted border border-border rounded-lg sm:rounded-xl p-0.5 shrink-0 w-full sm:w-auto">
               {([90, 30, 7] as RangeKey[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap",
+                    "px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-auto",
                     range === r
                       ? "bg-background text-foreground border border-border"
                       : "text-foreground/70 hover:text-foreground",
                   )}
+                  title={RANGE_LABELS_FULL[r]}
                 >
                   {RANGE_LABELS[r]}
                 </button>
@@ -409,16 +417,21 @@ export function MetricasView() {
             </div>
           </div>
 
+          {/* Chart container - CORREGIDO */}
           {loading ? (
-            <div className="h-[280px] flex items-center justify-center">
-              <span className="text-foreground/70">Cargando gráfico...</span>
+            <div className="flex-1 flex items-center justify-center">
+              <span className="text-foreground/70 text-sm">Cargando gráfico...</span>
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <span className="text-foreground/70 text-sm">Sin datos disponibles</span>
             </div>
           ) : (
-            <div className="h-[280px] w-full -mx-2">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="flex-1 w-full">
+              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                 <AreaChart
                   data={chartData}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
                 >
                   <defs>
                     <linearGradient id="ticketGradient" x1="0" y1="0" x2="0" y2="1">
@@ -438,12 +451,15 @@ export function MetricasView() {
 
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: tickColor, fontSize: 11 }}
+                    tick={{ fill: tickColor, fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
-                    interval="preserveStartEnd"
                   />
-                  <YAxis hide />
+                  <YAxis
+                    tick={{ fill: tickColor, fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
 
                   <Tooltip 
                     content={<ChartTooltip dataTab={dataTab} />} 
@@ -454,11 +470,11 @@ export function MetricasView() {
                     type="monotone"
                     dataKey="value"
                     stroke={strokeColor}
-                    strokeWidth={1.5}
+                    strokeWidth={2}
                     fill="url(#ticketGradient)"
                     dot={false}
                     activeDot={{
-                      r: 4,
+                      r: 5,
                       fill: strokeColor,
                       stroke: gridStroke,
                       strokeWidth: 2,
@@ -470,14 +486,14 @@ export function MetricasView() {
           )}
         </div>
 
-        {/* Data tabs */}
-        <div className="flex gap-1 bg-muted border border-border rounded-lg p-0.5 self-start">
+        {/* Data tabs - responsive */}
+        <div className="flex gap-1 bg-muted border border-border rounded-lg p-0.5 w-full sm:w-auto">
           {(["Tickets", "Usuarios"] as DataTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setDataTab(t)}
               className={cn(
-                "px-4 py-1.5 rounded-md text-sm font-medium transition-colors",
+                "px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-auto",
                 dataTab === t
                   ? "bg-background text-foreground border border-border"
                   : "text-foreground/70 hover:text-foreground",

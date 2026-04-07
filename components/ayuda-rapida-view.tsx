@@ -9,7 +9,10 @@ import {
   ActivitySquare,
   LayoutGrid,
   SmilePlus,
+  X,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const HELP_CARDS = [
   {
@@ -18,10 +21,10 @@ const HELP_CARDS = [
     icon: UserCircle,
     description: "Gestiona tu perfil, contraseña y preferencias personales.",
     guide: [
-      "1. Haz clic en tu avatar en la esquina inferior izquierda",
-      "2. Selecciona 'Mi Cuenta' del menú",
-      "3. Edita tu información personal o avatar",
-      "4. Guarda los cambios para actualizar tu perfil",
+      "Haz clic en tu avatar en la esquina inferior izquierda",
+      "Selecciona 'Mi Cuenta' del menú",
+      "Edita tu información personal o avatar",
+      "Guarda los cambios para actualizar tu perfil",
     ],
     keywords: ["password", "contraseña", "nombre", "correo", "email", "perfil", "avatar", "preferencias"],
   },
@@ -31,11 +34,11 @@ const HELP_CARDS = [
     icon: Ticket,
     description: "Crea y gestiona tickets de soporte técnico.",
     guide: [
-      "1. Ve a la sección de Tickets desde el menú principal",
-      "2. Haz clic en 'Crear nuevo' para abrir el formulario",
-      "3. Completa descripción, tipo, prioridad y asigna a miembros",
-      "4. Haz clic en 'Crear' para enviar el ticket",
-      "5. Visualiza el estado en tiempo real en la tabla",
+      "Ve a la sección de Tickets desde el menú principal",
+      "Haz clic en 'Crear nuevo' para abrir el formulario",
+      "Completa descripción, tipo, prioridad y asigna a miembros",
+      "Haz clic en 'Crear' para enviar el ticket",
+      "Visualiza el estado en tiempo real en la tabla",
     ],
     keywords: ["soporte", "problema", "reporte", "incidente", "crear", "formulario", "prioridad"],
   },
@@ -45,11 +48,11 @@ const HELP_CARDS = [
     icon: Users,
     description: "Crea y administra equipos de trabajo.",
     guide: [
-      "1. Accede a Equipos desde el menú (solo admin)",
-      "2. Haz clic en 'Agregar' para crear un nuevo equipo",
-      "3. Define el nombre e icono del equipo",
-      "4. Agrega miembros usando 'Agregar integrante'",
-      "5. Los miembros aparecerán en la lista del equipo",
+      "Accede a Equipos desde el menú (solo admin)",
+      "Haz clic en 'Agregar' para crear un nuevo equipo",
+      "Define el nombre e icono del equipo",
+      "Agrega miembros usando 'Agregar integrante'",
+      "Los miembros aparecerán en la lista del equipo",
     ],
     keywords: ["equipo", "grupo", "miembros", "integrante", "admin", "crear"],
   },
@@ -59,11 +62,11 @@ const HELP_CARDS = [
     icon: ActivitySquare,
     description: "Panel administrativo para gestionar usuarios y equipos.",
     guide: [
-      "1. Accede a Administración (solo admin)",
-      "2. Crea y edita usuarios con emails únicos",
-      "3. Asigna roles (admin o user) según necesidad",
-      "4. Gestiona equipos y sus integrantes",
-      "5. Desactiva usuarios innecesarios en lugar de eliminar",
+      "Accede a Administración (solo admin)",
+      "Crea y edita usuarios con emails únicos",
+      "Asigna roles (admin o user) según necesidad",
+      "Gestiona equipos y sus integrantes",
+      "Desactiva usuarios innecesarios en lugar de eliminar",
     ],
     keywords: ["admin", "administrador", "usuario", "roles", "permisos", "gestión"],
   },
@@ -73,11 +76,11 @@ const HELP_CARDS = [
     icon: LayoutGrid,
     description: "Visualiza y gestiona tareas en tablero interactivo.",
     guide: [
-      "1. Ve al Tablero Kanban desde el menú",
-      "2. Arrastra tareas entre columnas (Estados)",
-      "3. Haz clic en + para crear una nueva tarea",
-      "4. Las tareas vacías pueden recibir arrastres",
-      "5. Edita o elimina tareas desde el icono de menú",
+      "Ve al Tablero Kanban desde el menú",
+      "Arrastra tareas entre columnas (Estados)",
+      "Haz clic en + para crear una nueva tarea",
+      "Las tareas vacías pueden recibir arrastres",
+      "Edita o elimina tareas desde el icono de menú",
     ],
     keywords: ["kanban", "tablero", "tarea", "arrastrar", "columna", "estado"],
   },
@@ -87,11 +90,11 @@ const HELP_CARDS = [
     icon: SmilePlus,
     description: "Encuentra información adicional y soporte general.",
     guide: [
-      "1. Esta sección contiene ayuda general del sistema",
-      "2. Usa la búsqueda para encontrar temas específicos",
-      "3. Consulta la 'Política de privacidad' en el pie",
-      "4. Para soporte técnico, contacta al equipo de Sistemas",
-      "5. Reporta problemas o sugerencias al administrador",
+      "Esta sección contiene ayuda general del sistema",
+      "Usa la búsqueda para encontrar temas específicos",
+      "Consulta la 'Política de privacidad' en el pie",
+      "Para soporte técnico, contacta al equipo de Sistemas",
+      "Reporta problemas o sugerencias al administrador",
     ],
     keywords: ["ayuda", "soporte", "problema", "privacidad", "contacto"],
   },
@@ -116,156 +119,233 @@ export function AyudaRapidaView() {
 
   return (
     <>
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Header bar */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-border">
-        <h1 className="text-base font-semibold text-foreground tracking-wide">
-          Sección de ayuda
-        </h1>
-      </header>
+      <div className="flex flex-col h-screen bg-background text-foreground">
+        {/* Header bar */}
+        <header className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0">
+          <h1 className="text-sm sm:text-base font-semibold text-foreground tracking-wide">
+            Sección de ayuda
+          </h1>
+        </header>
 
-      {/* Main scrollable content */}
-      <main className="flex-1 flex flex-col items-center px-8 py-12 gap-10 overflow-y-auto">
-        {/* Hero search */}
-        <div className="flex flex-col items-center gap-5 w-full max-w-xl">
-          <h2 className="text-2xl font-semibold text-foreground text-balance text-center">
-            Estamos aqui para Ayudar
-          </h2>
-          <div className="relative w-full">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar"
-              className="w-full rounded-md border border-border bg-card text-foreground placeholder:text-muted-foreground px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition"
-            />
-            <Search
-              size={16}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            />
-          </div>
-        </div>
+        {/* Main scrollable content */}
+        <main className="flex-1 flex flex-col items-center px-3 sm:px-4 md:px-8 py-6 sm:py-8 md:py-12 gap-6 sm:gap-8 md:gap-10 overflow-y-auto">
+          {/* Hero search */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-3 sm:gap-4 md:gap-5 w-full max-w-xs sm:max-w-sm md:max-w-xl"
+          >
+            <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground text-balance text-center">
+              Estamos aqui para Ayudar
+            </h2>
+            <div className="relative w-full">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar"
+                className="w-full rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground px-3 sm:px-4 py-2 sm:py-2.5 pr-10 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring transition"
+              />
+              <Search
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none sm:block hidden"
+              />
+              <Search
+                size={12}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none sm:hidden"
+              />
+            </div>
+          </motion.div>
 
-        {/* 3×2 cards grid */}
-        <div className="grid grid-cols-3 gap-6 w-full max-w-3xl">
-          {filtered.map((card) => {
-            const Icon = card.icon;
-            return (
-              <button
-                key={card.id}
-                onClick={() => setSelectedCard(card)}
-                className="flex flex-col items-center text-center gap-3 rounded-lg border border-border bg-card px-6 py-8 hover:bg-accent transition-colors group cursor-pointer"
+          {/* Cards grid - responsive */}
+          <motion.div
+            layout
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 w-full max-w-xs sm:max-w-2xl md:max-w-4xl"
+          >
+            <AnimatePresence mode="popLayout">
+              {filtered.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <motion.button
+                    key={card.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.2 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedCard(card)}
+                    className={cn(
+                      "flex flex-col items-center text-center gap-2 sm:gap-3 rounded-lg border border-border bg-card px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8",
+                      "hover:bg-accent transition-colors group cursor-pointer"
+                    )}
+                  >
+                    <Icon
+                      size={32}
+                      strokeWidth={1.25}
+                      className="text-foreground group-hover:scale-105 transition-transform sm:hidden"
+                    />
+                    <Icon
+                      size={40}
+                      strokeWidth={1.25}
+                      className="text-foreground group-hover:scale-105 transition-transform hidden sm:block md:hidden"
+                    />
+                    <Icon
+                      size={52}
+                      strokeWidth={1.25}
+                      className="text-foreground group-hover:scale-105 transition-transform hidden md:block"
+                    />
+                    <span className="text-xs sm:text-sm md:text-base font-semibold text-foreground">
+                      {card.title}
+                    </span>
+                    <p className="text-[10px] sm:text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                      {card.description}
+                    </p>
+                  </motion.button>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Empty state */}
+            {filtered.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="col-span-1 sm:col-span-2 lg:col-span-3 flex flex-col items-center gap-3 sm:gap-4 py-8 sm:py-12"
               >
-                <Icon
-                  size={52}
-                  strokeWidth={1.25}
-                  className="text-foreground group-hover:scale-105 transition-transform"
-                />
-                <span className="text-sm font-semibold text-foreground">
-                  {card.title}
-                </span>
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                  {card.description}
+                <p className="text-xs sm:text-sm text-muted-foreground text-center px-4">
+                  No se encontraron guías para <span className="font-medium">&quot;{query}&quot;</span>.
                 </p>
-              </button>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div className="col-span-3 flex flex-col items-center gap-4 py-12">
-              <p className="text-sm text-muted-foreground text-center">
-                No se encontraron guías para &ldquo;<span className="font-medium">{query}</span>&rdquo;.
-              </p>
-              <button
-                onClick={() => setQuery("")}
-                className="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-medium hover:bg-accent transition-colors"
-              >
-                Limpiar búsqueda
-              </button>
-            </div>
-          )}
-        </div>
-      </main>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setQuery("")}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-border bg-card text-foreground text-xs sm:text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  Limpiar búsqueda
+                </motion.button>
+              </motion.div>
+            )}
+          </motion.div>
+        </main>
 
-      {/* Footer */}
-      <footer className="flex items-center justify-between px-8 py-4 border-t border-border">
-        <p className="text-xs text-muted-foreground">
-          Un proyecto del{" "}
-          <span className="font-semibold text-foreground">
-            Equipo de Sistemas
-          </span>
-        </p>
-        <a
-          href="#"
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
-        >
-          Política de privacidad
-        </a>
-      </footer>
-    </div>
-
-    {/* Manual de Usuario Modal */}
-    {selectedCard && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-card rounded-xl border border-border max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-border">
-            <div className="flex items-center gap-3">
-              {(() => {
-                const Icon = selectedCard.icon;
-                return <Icon size={28} className="text-foreground" />;
-              })()}
-              <h2 className="text-2xl font-semibold text-foreground">
-                {selectedCard.title}
-              </h2>
-            </div>
-            <button
-              onClick={() => setSelectedCard(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1"
-              aria-label="Cerrar"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-4">
-              <p className="text-foreground text-base leading-relaxed">
-                {selectedCard.description}
-              </p>
-              <div className="border-t border-border pt-4">
-                <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Pasos para usar esta función:
-                </h3>
-                <ol className="space-y-2">
-                  {selectedCard.guide.map((step, idx) => (
-                    <li
-                      key={idx}
-                      className="text-sm text-muted-foreground leading-relaxed flex gap-3"
-                    >
-                      <span className="font-medium text-foreground min-w-fit">
-                        {(idx + 1).toString()}
-                      </span>
-                      <span>{step.substring(3)}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
-            <button
-              onClick={() => setSelectedCard(null)}
-              className="px-4 py-2 rounded-lg border border-border bg-card text-foreground text-sm font-medium hover:bg-accent transition-colors"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
+        {/* Footer */}
+        <footer className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-t border-border text-center sm:text-left shrink-0">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
+            Un proyecto del{" "}
+            <span className="font-semibold text-foreground">
+              Equipo de Sistemas
+            </span>
+          </p>
+          <a
+            href="#"
+            className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline whitespace-nowrap"
+          >
+            Política de privacidad
+          </a>
+        </footer>
       </div>
-    )}
+
+      {/* Manual de Usuario Modal */}
+      <AnimatePresence>
+        {selectedCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4"
+            onClick={() => setSelectedCard(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card rounded-lg sm:rounded-xl border border-border max-w-xs sm:max-w-md md:max-w-lg w-full max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-border shrink-0 gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  {(() => {
+                    const Icon = selectedCard.icon;
+                    return (
+                      <Icon size={20} className="text-foreground shrink-0 sm:hidden" />
+                    );
+                  })()}
+                  {(() => {
+                    const Icon = selectedCard.icon;
+                    return (
+                      <Icon size={28} className="text-foreground shrink-0 hidden sm:block" />
+                    );
+                  })()}
+                  <h2 className="text-base sm:text-xl md:text-2xl font-semibold text-foreground truncate">
+                    {selectedCard.title}
+                  </h2>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setSelectedCard(null)}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-accent rounded-lg shrink-0"
+                  aria-label="Cerrar"
+                >
+                  <X size={16} className="sm:hidden" />
+                  <X size={20} className="hidden sm:block" />
+                </motion.button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="space-y-3 sm:space-y-4"
+                >
+                  <p className="text-foreground text-xs sm:text-sm md:text-base leading-relaxed">
+                    {selectedCard.description}
+                  </p>
+                  <div className="border-t border-border pt-3 sm:pt-4">
+                    <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-2 sm:mb-3">
+                      Pasos para usar esta función:
+                    </h3>
+                    <ol className="space-y-1.5 sm:space-y-2">
+                      {selectedCard.guide.map((step, idx) => (
+                        <motion.li
+                          key={idx}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="text-xs sm:text-sm text-muted-foreground leading-relaxed flex gap-2 sm:gap-3"
+                        >
+                          <span className="font-medium text-foreground min-w-fit shrink-0">
+                            {(idx + 1).toString()}
+                          </span>
+                          <span className="text-left">{step}</span>
+                        </motion.li>
+                      ))}
+                    </ol>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 border-t border-border shrink-0">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedCard(null)}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-border bg-card text-foreground text-xs sm:text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  Cerrar
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
