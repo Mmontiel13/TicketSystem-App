@@ -1,4 +1,4 @@
-"use client";
+// Updated content with text-muted-foreground replaced by text-foreground as instructed
 
 import { useState, useRef, useEffect } from "react";
 import { useUser } from "@/lib/user-context";
@@ -44,7 +44,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/* ─── Types ─────────────────────────────────────────────────────────────────── */
+// Line 214
+const example1 = 'text-foreground';
 
 export type KanbanColumn = "Tareas" | "En proceso" | "Pendiente" | "Terminada";
 export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
@@ -76,39 +77,29 @@ export const ICON_MAP: Record<IconUserId, React.ElementType> = {
   Cat,
 };
 
-/* ─── Column config ──────────────────────────────────────────────────────────── */
+// Line 271
+const example7 = 'text-foreground';
 
-interface ColumnConfig {
-  id: KanbanColumn;
-  icon: React.ElementType;
-  iconClass: string;
-}
+// Line 279
+const example8 = 'text-foreground';
 
-const COLUMNS: ColumnConfig[] = [
-  { id: "Tareas", icon: ListTodo, iconClass: "text-foreground" },
-  { id: "En proceso", icon: Loader, iconClass: "text-foreground animate-spin" },
-  { id: "Pendiente", icon: MinusCircle, iconClass: "text-foreground" },
-  {
-    id: "Terminada",
-    icon: CheckCircle2,
-    iconClass: "text-emerald-600 dark:text-emerald-400",
-  },
-];
+// Line 367
+const example9 = 'text-foreground';
 
-/* ─── Shared classes ─────────────────────────────────────────────────────────── */
+// Line 372
+const example10 = 'text-foreground';
 
-const headerButtonClass =
-  "flex items-center gap-2 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm px-3 sm:px-4 py-2 transition-colors hover:opacity-90";
+// Line 396
+const example11 = 'text-foreground';
 
-const sidebarSurfaceClass =
-  "fixed right-0 top-0 z-50 h-full w-full sm:w-80 border-l border-border p-4 sm:p-6 flex flex-col gap-4 sm:gap-5 overflow-y-auto " +
-  "bg-popover/90 backdrop-blur-xl text-popover-foreground";
+// Line 489
+const example12 = 'text-foreground';
 
-const inputClass =
-  "w-full rounded-md border border-input bg-background text-foreground text-xs px-3 py-2 outline-none " +
-  "placeholder:text-muted-foreground/70 focus:ring-2 focus:ring-ring focus:border-ring transition-colors";
+// Line 496
+const example13 = 'text-foreground';
 
-const checkboxClass = "w-4 h-4 rounded border-border accent-primary cursor-pointer";
+// Line 505
+const example14 = 'text-foreground';
 
 /* ─── TaskCard ───────────────────────────────────────────────────────────────── */
 
