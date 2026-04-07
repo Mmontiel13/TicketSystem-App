@@ -113,130 +113,7 @@ interface Team {
 
 /* ─── Mock data ─────────────────────────────────────────────────────────────── */
 
-const INITIAL_TEAMS: Team[] = [
-  {
-    id: 1,
-    name: "Equipo de Ventas",
-    area: "Ventas",
-    iconId: "TrendingUp",
-    members: [
-      {
-        id: 1,
-        name: "Andrea López",
-        email: "andrea.ventas@asiatech.com",
-        iconId: "Ghost",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Carlos Martín",
-        email: "carlos.ventas@asiatech.com",
-        iconId: "Fish",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Equipo de Programación",
-    area: "Programación",
-    iconId: "Code2",
-    members: [
-      {
-        id: 1,
-        name: "Lucía Torres",
-        email: "lucia.programacion@asiatech.com",
-        iconId: "Rose",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Javier Pérez",
-        email: "javier.programacion@asiatech.com",
-        iconId: "Users",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 3,
-        name: "María Gómez",
-        email: "maria.programacion@asiatech.com",
-        iconId: "Cat",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Equipo de Compras",
-    area: "Compras",
-    iconId: "ShoppingCart",
-    members: [
-      {
-        id: 1,
-        name: "Fernanda Silva",
-        email: "fernanda.compras@asiatech.com",
-        iconId: "Fish",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Diego Ramírez",
-        email: "diego.compras@asiatech.com",
-        iconId: "Rabbit",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 4,
-    name: "Equipo de Infraestructura",
-    area: "Infra",
-    iconId: "Server",
-    members: [
-      {
-        id: 1,
-        name: "Pedro Soto",
-        email: "pedro.infra@asiatech.com",
-        iconId: "Ghost",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Alicia Bravo",
-        email: "alicia.infra@asiatech.com",
-        iconId: "Rose",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 3,
-        name: "Luis Navarro",
-        email: "luis.infra@asiatech.com",
-        iconId: "Cat",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-];
+
 
 /* ─── Shared UI class helpers ──────────────────────────────────────────────── */
 
@@ -298,7 +175,7 @@ function TeamModal({
   onSave: () => Promise<void>;
 }) {
   const [teamName, setTeamName] = useState(initial?.area ?? "");
-  const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "Users");
+  const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "BadgeDollarSign");
   const [isSaving, setIsSaving] = useState(false);
   const supabase = createClient();
   const isEdit = !!initial;
@@ -467,7 +344,7 @@ function AddMemberModal({
   const isEditMode = !!initialUser;
   const [memberName, setMemberName] = useState(initialUser?.full_name ?? "");
   const [memberEmail, setMemberEmail] = useState(initialUser?.email ?? "");
-  const [selectedIcon, setSelectedIcon] = useState<IconUserId>(initialUser?.avatar_icon ?? "Users");
+  const [selectedIcon, setSelectedIcon] = useState<IconUserId>(initialUser?.avatar_icon ?? "Ghost");
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
@@ -844,7 +721,7 @@ function TeamDetailPane({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => onEditMember({ id: 0, full_name: "", email: "", avatar_icon: "Users" })}
+            onClick={() => onEditMember({ id: 0, full_name: "", email: "", avatar_icon: "Ghost" })}
             className={cn(primaryButtonClass, "w-full")}
             type="button"
             disabled={isSavingMember}
