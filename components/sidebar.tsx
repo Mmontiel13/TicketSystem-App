@@ -17,14 +17,19 @@ import {
   Menu,
   X,
   LogOut,
+  Ghost,
+  Rose,
+  Rabbit,
+  Fish,
+  Cat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUser } from "@/lib/user-context";
+import { useUser, type IconUserId } from "@/lib/user-context";
 
 /* ─── Nav config ─────────────────────────────────────────────────────────────── */
 
 const NAV_PRINCIPAL_ALL = [
-  { label: "Tickets", icon: CheckSquare, href: "/dashboard", adminOnly: false },
+  { label: "Tickets", icon: CheckSquare, href: "/dashboard/tickets", adminOnly: false },
   {
     label: "Metricas",
     icon: BarChart2,
@@ -47,6 +52,14 @@ const NAV_GENERAL_LINKS = [
 /* ─── Logo SVG ───────────────────────────────────────────────────────────────── */
 
 function AsiatechMark({ isDark }: { isDark: boolean }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <img
       src="/logodark.svg"
@@ -61,6 +74,19 @@ function AsiatechMark({ isDark }: { isDark: boolean }) {
 }
 
 /* ─── Nav link ───────────────────────────────────────────────────────────────── */
+
+function userIconById(id: IconUserId) {
+  const map: Record<IconUserId, React.ElementType> = {
+    Ghost,
+    Rose,
+    Rabbit,
+    Users: UserCircle,
+    Fish,
+    Cat,
+  }
+
+  return map[id] ?? UserCircle
+}
 
 function SidebarLink({
   href,
@@ -115,7 +141,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   function handleLogout() {
     logout();
-    router.push("/");
+    router.push("/login");
   }
 
   function handleToggleTheme() {
@@ -191,8 +217,13 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
       {/* User profile + logout */}
       <div className="px-4 py-4 border-t border-sidebar-border flex items-center gap-3">
-        <UserCircle size={32} className="text-muted-foreground shrink-0" />
-        <span className="text-sm text-zinc-300 flex-1">{user.name}</span>
+        {(() => {
+          const ProfileIcon = userIconById(user.iconId || "Users")
+          return (
+            <ProfileIcon size={32} className="text-muted-foreground shrink-0" />
+          )
+        })()}
+        <span className="text-sm text-zinc-300 flex-1">{user.name || user.email}</span>
         <button
           onClick={handleLogout}
           className="text-zinc-500 hover:text-red-400 transition-colors"

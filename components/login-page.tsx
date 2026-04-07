@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, Users, Ticket } from "lucide-react";
-import { useUser } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { authenticate } = useUser();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,18 +22,51 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
 
-    const result = authenticate(identifier, password);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: identifier.trim().toLowerCase(),
+        password,
+      });
 
-    if (!result.success) {
-      setError(result.message ?? "Credenciales inválidas");
+      if (error) {
+        if (error.message.toLowerCase().includes("confirm") || error.message.toLowerCase().includes("confirmar")) {
+          setError("Por favor, confirma tu correo antes de entrar");
+        } else {
+          setError(error.message || "Credenciales inválidas");
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!data?.session || !data.session.user) {
+        setError("No se pudo iniciar sesión. Intenta de nuevo.");
+        setLoading(false);
+        return;
+      }
+
+      const userEmail = data.session.user.email ?? identifier.trim().toLowerCase();
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("id, full_name, avatar_icon, role, email")
+        .eq("email", userEmail)
+        .single();
+
+      if (profileError || !profile) {
+        setError("No se pudo cargar el perfil del usuario.");
+        setLoading(false);
+        return;
+      }
+
+      const targetRoute = profile.role === "admin" ? "/dashboard/metricas" : "/dashboard/tickets";
+      router.push(targetRoute);
+    } catch (e) {
+      console.error("Login error:", e);
+      setError("Ocurrió un error inesperado. Intenta de nuevo más tarde.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setLoading(false);
-    router.push("/dashboard");
   };
 
   return (

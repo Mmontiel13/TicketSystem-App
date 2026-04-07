@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Users,
   ShoppingCart,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 
 /* ─── Icon picker config ────────────────────────────────────────────────────── */
@@ -62,6 +64,13 @@ const USER_ICONS = [
 type IconId = (typeof TEAM_ICONS)[number]["id"];
 type IconUserId = (typeof USER_ICONS)[number]["id"];
 
+type EditingUser = {
+  id: string | number;
+  full_name: string;
+  email: string;
+  avatar_icon: IconUserId;
+};
+
 function iconById(id: IconId) {
   return TEAM_ICONS.find((i) => i.id === id)?.icon ?? Users;
 }
@@ -73,8 +82,9 @@ function iconByUserId(id: IconUserId) {
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
 type TeamMember = {
-  id: number;
+  id: string | number;
   name: string;
+  full_name?: string;
   email: string;
   iconId: IconUserId;
   role: "user" | "admin";
@@ -274,16 +284,48 @@ function TeamModal({
 }: {
   initial?: Team;
   onClose: () => void;
-  onSave: (name: string, iconId: IconId) => void;
+  onSave: () => Promise<void>;
 }) {
   const [teamName, setTeamName] = useState(initial?.area ?? "");
   const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "Users");
+  const [isSaving, setIsSaving] = useState(false);
+  const supabase = createClient();
   const isEdit = !!initial;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!teamName.trim()) return;
-    onSave(teamName.trim(), selectedIcon);
-    onClose();
+
+    setIsSaving(true);
+    try {
+      if (isEdit && initial?.id != null) {
+        const { error } = await supabase
+          .from("teams")
+          .update({ name: `Equipo de ${teamName}`, icon_id: selectedIcon })
+          .eq("id", initial.id)
+          .eq("is_active", true);
+
+        if (error) {
+          console.error("Error al actualizar el equipo", error);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from("teams")
+          .insert([{ name: `Equipo de ${teamName}`, icon_id: selectedIcon, is_active: true }]);
+
+        if (error) {
+          console.error("Error al crear el equipo", error);
+          return;
+        }
+      }
+
+      await onSave();
+      onClose();
+    } catch (error) {
+      console.error("Error en al guardar el equipo", error);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -344,9 +386,10 @@ function TeamModal({
           onClick={handleSubmit}
           className={cn(primaryButtonClass, "mt-5 w-full")}
           type="button"
+          disabled={isSaving}
         >
           <Plus size={14} />
-          {isEdit ? "Guardar cambios" : "Agregar"}
+          {isSaving ? (isEdit ? "Guardando cambios..." : "Agregando...") : isEdit ? "Guardar cambios" : "Agregar"}
         </motion.button>
       </motion.div>
     </>
@@ -399,18 +442,134 @@ function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect
 function AddMemberModal({
   onClose,
   onAdd,
+  onUpdate,
+  initialUser,
+  members = [],
 }: {
   onClose: () => void;
-  onAdd: (name: string, email: string, iconId: IconUserId) => void;
+  onAdd: (name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; password?: string; message: string }>;
+  onUpdate: (userId: string | number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; message: string }>;
+  initialUser?: EditingUser;
+  members?: TeamMember[];
 }) {
-  const [memberName, setMemberName] = useState("");
-  const [memberEmail, setMemberEmail] = useState("");
-  const [selectedIcon, setSelectedIcon] = useState<IconUserId>("Users");
+  const { toast } = useToast();
+  const isEditMode = !!initialUser;
+  const [memberName, setMemberName] = useState(initialUser?.full_name ?? "");
+  const [memberEmail, setMemberEmail] = useState(initialUser?.email ?? "");
+  const [selectedIcon, setSelectedIcon] = useState<IconUserId>(initialUser?.avatar_icon ?? "Users");
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; email?: string; icon?: string }>({});
 
-  function handleSubmit() {
-    if (!memberName.trim() || !memberEmail.trim()) return;
-    onAdd(memberName.trim(), memberEmail.trim(), selectedIcon);
-    onClose();
+  const isValid = memberName.trim() && memberEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim()) && selectedIcon;
+
+  async function handleSubmit() {
+    const newErrors: { name?: string; email?: string; icon?: string } = {};
+
+    if (!memberName.trim()) {
+      newErrors.name = "El nombre completo es requerido";
+    }
+    if (!memberEmail.trim()) {
+      newErrors.email = "El correo electrónico es requerido";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(memberEmail.trim())) {
+        newErrors.email = "Formato de correo electrónico inválido";
+      }
+    }
+    if (!selectedIcon) {
+      newErrors.icon = "Debes seleccionar un icono de avatar";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor, completa todos los campos requeridos correctamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const trimmedEmail = memberEmail.trim().toLowerCase();
+
+    // Frontend validation: check if email already exists
+    const emailExists = members.some((m) => {
+      const existingEmail = m.email.toLowerCase();
+      // For edit mode, ignore the current user's email
+      if (isEditMode && initialUser && m.id === initialUser.id) {
+        return false;
+      }
+      return existingEmail === trimmedEmail;
+    });
+
+    if (emailExists) {
+      setFeedback("Este correo ya está registrado en otro usuario.");
+      setIsSuccess(false);
+      toast({
+        title: "Correo duplicado",
+        description: "Este correo ya está registrado en otro usuario.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    setFeedback(null);
+    setIsSuccess(false);
+    setCreatedPassword(null);
+
+    try {
+      if (isEditMode && initialUser) {
+        const result = await onUpdate(initialUser.id, memberName.trim(), trimmedEmail, selectedIcon);
+        if (!result.success) {
+          setFeedback(result.message || "No se pudo actualizar el miembro.");
+          toast({
+            title: "Error al actualizar",
+            description: result.message || "No se pudo actualizar el miembro.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setFeedback(result.message);
+        setIsSuccess(true);
+        toast({
+          title: "Miembro actualizado",
+          description: result.message,
+        });
+      } else {
+        const result = await onAdd(memberName.trim(), trimmedEmail, selectedIcon);
+        if (!result.success) {
+          setFeedback(result.message || "No se pudo agregar el miembro.");
+          toast({
+            title: "Error al agregar",
+            description: result.message || "No se pudo agregar el miembro.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setFeedback(result.message);
+        setCreatedPassword(result.password ?? null);
+        setIsSuccess(true);
+        toast({
+          title: "Miembro agregado",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error(isEditMode ? "Error al actualizar integrante" : "Error al agregar integrante", error);
+      setFeedback(isEditMode ? "Error desconocido al actualizar integrante." : "Error desconocido al agregar integrante.");
+      toast({
+        title: "Error inesperado",
+        description: isEditMode ? "Error desconocido al actualizar integrante." : "Error desconocido al agregar integrante.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -430,11 +589,13 @@ function AddMemberModal({
         className={cn(modalSurfaceClass, "w-[360px]")}
         role="dialog"
         aria-modal="true"
-        aria-label="Agregar integrante"
+        aria-label={isEditMode ? "Editar integrante" : "Agregar integrante"}
       >
-        <h2 className="text-foreground font-semibold text-base mb-1">Agregando un integrante</h2>
+        <h2 className="text-foreground font-semibold text-base mb-1">
+          {isEditMode ? "Editando integrante" : "Agregando un integrante"}
+        </h2>
         <p className="text-muted-foreground text-xs mb-5">
-          Cada integrante tendrá credenciales individuales y acceso controlado.
+          {isEditMode ? "Actualiza los datos del integrante." : "Cada integrante tendrá credenciales individuales y acceso controlado."}
         </p>
 
         <div className="flex flex-col gap-1 mb-3">
@@ -444,9 +605,10 @@ function AddMemberModal({
             value={memberName}
             onChange={(e) => setMemberName(e.target.value)}
             placeholder="Nombre completo"
-            className={inputClass}
+            className={cn(inputClass, errors.name && "border-destructive focus:ring-destructive focus:border-destructive")}
             autoFocus
           />
+          {errors.name && <p className="text-destructive text-xs">{errors.name}</p>}
         </div>
 
         <div className="flex flex-col gap-1 mb-3">
@@ -456,8 +618,9 @@ function AddMemberModal({
             value={memberEmail}
             onChange={(e) => setMemberEmail(e.target.value)}
             placeholder="correo@ejemplo.com"
-            className={inputClass}
+            className={cn(inputClass, errors.email && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
+          {errors.email && <p className="text-destructive text-xs">{errors.email}</p>}
         </div>
 
         <div className="flex flex-col gap-1 mb-4">
@@ -465,16 +628,60 @@ function AddMemberModal({
           <UserIconPicker selected={selectedIcon} onSelect={setSelectedIcon} />
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleSubmit}
-          className={cn(primaryButtonClass, "w-full")}
-          type="button"
-        >
-          <Plus size={14} />
-          Agregar
-        </motion.button>
+        {feedback && (
+          <div
+            className={cn(
+              "mb-3 rounded-md px-3 py-2 text-sm",
+              isSuccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+            )}
+          >
+            {feedback}
+          </div>
+        )}
+
+        {isSuccess && createdPassword && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Contraseña temporal:</span>
+            <code className="rounded bg-muted px-2 py-1 text-xs">{createdPassword}</code>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(createdPassword)}
+              className="text-xs text-primary hover:underline"
+            >
+              Copiar
+            </button>
+          </div>
+        )}
+
+        {isSuccess ? (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onClose}
+            className={cn(primaryButtonClass, "w-full")}
+            type="button"
+          >
+            Cerrar
+          </motion.button>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleSubmit}
+            className={cn(primaryButtonClass, "w-full")}
+            type="button"
+            disabled={isSaving || !isValid}
+          >
+            <Plus size={14} />
+            {isSaving
+              ? isEditMode
+                ? "Actualizando..."
+                : "Agregando..."
+              : isEditMode
+                ? "Guardar cambios"
+                : "Agregar"}
+          </motion.button>
+        )}
       </motion.div>
     </>
   );
@@ -495,7 +702,6 @@ function TeamCard({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className={cn(
@@ -529,18 +735,23 @@ function TeamDetailPane({
   onEdit,
   onMemberAdded,
   onMemberRemove,
+  onEditMember,
+  deletingMemberId,
+  isSavingMember,
 }: {
   team: Team;
   isAdmin: boolean;
   onEdit: () => void;
-  onMemberAdded: (teamId: number, name: string, email: string, iconId: IconUserId) => void;
-  onMemberRemove: (teamId: number, memberId: number) => void;
+  onMemberAdded: (teamId: number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; password?: string; message: string }>;
+  onMemberRemove: (teamId: number, memberId: string | number) => Promise<void>;
+  onEditMember: (member: EditingUser) => void;
+  deletingMemberId?: number | null;
+  isSavingMember?: boolean;
 }) {
-  const [showAddMember, setShowAddMember] = useState(false);
   const Icon = iconById(team.iconId);
 
   return (
-    <div className="h-full rounded-lg border border-border p-5 flex flex-col bg-card">
+    <div className="h-full rounded-lg border border-border p-5 flex flex-col bg-card min-h-0">
       <div className="flex flex-col items-center mb-6">
         <p className="text-muted-foreground text-xs mb-2 self-start">Equipo:</p>
         <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center mb-2">
@@ -563,36 +774,57 @@ function TeamDetailPane({
         <p className="text-foreground font-semibold text-sm">{team.area}</p>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <p className="text-muted-foreground text-xs font-medium mb-3">Integrantes:</p>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-4">
           {team.members
             .filter((m) => m.isActive)
-            .map((m) => (
-              <div key={m.id} className="flex items-center justify-between gap-3 py-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
-                    {(() => {
-                      const IconUser = iconByUserId(m.iconId);
-                      return <IconUser size={16} className="text-foreground" />;
-                    })()}
+            .map((m) => {
+              const IconUser = iconByUserId(m.iconId);
+              return (
+                <div
+                  key={m.id}
+                  className="rounded-xl border border-border bg-white/10 backdrop-blur-sm p-3 min-w-0"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                      <IconUser size={18} className="text-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-foreground text-sm font-semibold truncate">{m.full_name ?? m.name}</p>
+                      <p className="text-muted-foreground text-xs truncate max-w-[240px]">{m.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-foreground text-sm">{m.name}</p>
-                    <p className="text-muted-foreground text-xs">{m.email}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onEditMember({
+                          id: m.id,
+                          full_name: m.full_name ?? m.name,
+                          email: m.email,
+                          avatar_icon: m.iconId,
+                        });
+                      }}
+                      className="rounded-md border border-border bg-transparent px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMemberRemove(team.id, m.id)}
+                      disabled={deletingMemberId === m.id}
+                      className={cn(
+                        "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100",
+                        deletingMemberId === m.id ? "opacity-50 cursor-not-allowed" : ""
+                      )}
+                    >
+                      {deletingMemberId === m.id ? "Eliminando..." : "Eliminar"}
+                    </button>
                   </div>
                 </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => onMemberRemove(team.id, m.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
         </div>
       </div>
 
@@ -601,27 +833,16 @@ function TeamDetailPane({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => setShowAddMember(true)}
+            onClick={() => onEditMember({ id: 0, full_name: "", email: "", avatar_icon: "Users" })}
             className={cn(primaryButtonClass, "w-full")}
             type="button"
+            disabled={isSavingMember}
           >
             <Plus size={14} />
-            Agregar
+            {isSavingMember ? "Agregando..." : "Agregar"}
           </motion.button>
         </div>
       )}
-
-      <AnimatePresence>
-        {showAddMember && (
-          <AddMemberModal
-            onClose={() => setShowAddMember(false)}
-            onAdd={(name, email, iconId) => {
-              onMemberAdded(team.id, name, email, iconId);
-              setShowAddMember(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -631,8 +852,82 @@ function TeamDetailPane({
 export function EquiposView() {
   const { user, addUser, deactivateUser } = useUser();
   const isAdmin = user.role === "admin";
+  const supabase = createClient();
 
-  const [teams, setTeams] = useState<Team[]>(INITIAL_TEAMS);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [activeTeamId, setActiveTeamId] = useState<number | null>(null);
+  const [showAddTeam, setShowAddTeam] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<EditingUser | null>(null);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+
+  const refreshTeams = async () => {
+    setIsLoadingTeams(true);
+    try {
+      const [teamsResult, usersResult] = await Promise.all([
+        supabase.from("teams").select("id, name, icon_id").eq("is_active", true),
+        supabase
+          .from("users")
+          .select("id, full_name, email, role, avatar_icon, team_id")
+          .eq("is_active", true),
+      ]);
+
+      if (teamsResult.error) {
+        console.error("Error al obtener equipos", teamsResult.error);
+        return;
+      }
+      if (usersResult.error) {
+        console.error("Error al obtener miembros", usersResult.error);
+        return;
+      }
+
+      const membersByTeam = new Map<number, TeamMember[]>();
+      usersResult.data?.forEach((user) => {
+        if (!user.team_id) return;
+        const existing = membersByTeam.get(user.team_id) ?? [];
+        membersByTeam.set(user.team_id, [
+          ...existing,
+          {
+            id: user.id,
+            name: user.full_name,
+            full_name: user.full_name,
+            email: user.email,
+            iconId: (user.avatar_icon as IconUserId) || "Users",
+            role: (user.role as "user" | "admin") || "user",
+            isActive: true,
+            deletedAt: null,
+          },
+        ]);
+      });
+
+      if (teamsResult.data) {
+        const normalized = teamsResult.data.map((team) => ({
+          id: team.id,
+          name: team.name ?? "",
+          area: team.name ?? "",
+          iconId: (team.icon_id as IconId) || "Users",
+          members: membersByTeam.get(team.id) ?? [],
+        }));
+
+        setTeams(normalized);
+        if (!activeTeamId && normalized.length > 0) {
+          setActiveTeamId(normalized[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Error al refrescar equipos", error);
+    } finally {
+      setIsLoadingTeams(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshTeams();
+  }, [supabase]);
 
   if (!isAdmin) {
     return (
@@ -646,90 +941,134 @@ export function EquiposView() {
       </div>
     );
   }
-  const [activeTeamId, setActiveTeamId] = useState<number>(2);
-  const [showAddTeam, setShowAddTeam] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
-  const activeTeam = teams.find((t) => t.id === activeTeamId) ?? teams[0];
+  const activeTeam =
+    teams.find((t) => t.id === activeTeamId) ??
+    teams[0] ??
+    ({
+      id: 0,
+      name: "Sin equipo",
+      area: "",
+      iconId: "Users" as IconId,
+      members: [],
+    } as Team);
 
-  function handleSaveTeam(name: string, iconId: IconId) {
-    if (editingTeam) {
-      setTeams((prev) =>
-        prev.map((t) =>
-          t.id === editingTeam.id ? { ...t, area: name, name: `Equipo de ${name}`, iconId } : t
-        )
-      );
-      setEditingTeam(null);
-    } else {
-      const newTeam: Team = {
-        id: Date.now(),
-        name: `Equipo de ${name}`,
-        area: name,
-        iconId,
-        members: [],
-      };
-      setTeams((prev) => [...prev, newTeam]);
-      setActiveTeamId(newTeam.id);
+  async function deleteUser(userId: string | number) {
+    const { error } = await supabase.from("users").update({ is_active: false }).eq("id", userId);
+    if (error) {
+      console.error("Error al desactivar usuario", error);
+      throw error;
     }
   }
 
-  function handleMemberAdded(teamId: number, memberName: string, memberEmail: string, memberIcon: IconUserId) {
-    const generatedPassword = generateRandomPassword();
-    sendWelcomeEmail(memberEmail, generatedPassword);
+  async function handleUpdateMember(userId: string | number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; message: string }> {
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({
+          full_name: memberName,
+          email: memberEmail,
+          avatar_icon: memberIcon,
+        })
+        .eq("id", userId)
+        .select();
 
-    const newMemberId = Date.now();
+      if (error) {
+        console.error("Error al actualizar miembro", error);
+        // Handle unique constraint violation on email
+        if (error.code === "23505") {
+          return { success: false, message: "Este correo ya está registrado en otro usuario." };
+        }
+        return { success: false, message: "Error al actualizar miembro. Revisa la consola." };
+      }
 
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === teamId
-          ? {
-              ...t,
-              members: [
-                ...t.members,
-                {
-                  id: newMemberId,
-                  name: memberName,
-                  email: memberEmail,
-                  iconId: memberIcon,
-                  role: "user",
-                  isActive: true,
-                  deletedAt: null,
-                },
-              ],
-            }
-          : t
-      )
-    );
+      // Refresh to get updated data
+      await refreshTeams();
 
-    addUser({
-      id: newMemberId,
-      name: memberName,
-      email: memberEmail,
-      password: generatedPassword,
-      role: "user",
-      iconId: memberIcon,
-    });
+      return { success: true, message: "Miembro actualizado correctamente." };
+    } catch (error) {
+      console.error("Error al actualizar integrante", error);
+      return { success: false, message: "Error desconocido al actualizar integrante." };
+    }
   }
 
-  function handleMemberRemove(teamId: number, memberId: number) {
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === teamId
-          ? {
-              ...t,
-              members: t.members.map((m) =>
-                m.id === memberId
-                  ? { ...m, isActive: false, deletedAt: new Date() }
-                  : m
-              ),
-            }
-          : t
-      )
-    );
+  async function handleMemberAdded(teamId: number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; password?: string; message: string }> {
+    setIsSavingMember(true);
+    setStatusMessage(null);
 
-    const member = teams.find((t) => t.id === teamId)?.members.find((m) => m.id === memberId);
-    if (member) {
-      deactivateUser(member.id);
+    try {
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: memberName,
+          email: memberEmail,
+          avatar_icon: memberIcon,
+          team_id: teamId,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        const message = result.error || "Error al agregar miembro";
+        setStatusMessage(message)
+        return { success: false, message }
+      }
+
+      await refreshTeams()
+
+      const successMessage = `Miembro agregado. Contraseña temporal: ${result.password}`
+      setStatusMessage(successMessage)
+      sendWelcomeEmail(memberEmail, result.password)
+
+      return { success: true, password: result.password, message: successMessage }
+    } catch (error) {
+      console.error("Error al agregar miembro:", error)
+      const message = "Error al agregar miembro"
+      setStatusMessage(message)
+      return { success: false, message }
+    } finally {
+      setIsSavingMember(false)
+    }
+  }
+
+  async function handleMemberRemove(teamId: number, memberId: string | number) {
+    setDeletingMemberId(typeof memberId === 'number' ? memberId : Number(memberId));
+    setStatusMessage(null);
+
+    try {
+      await deleteUser(memberId);
+
+      setTeams((prev) =>
+        prev.map((t) =>
+          t.id === teamId
+            ? {
+                ...t,
+                members: t.members.map((m) =>
+                  m.id === memberId ? { ...m, isActive: false, deletedAt: new Date() } : m
+                ),
+              }
+            : t
+        )
+      );
+
+      if (typeof memberId === "number") {
+        deactivateUser(memberId);
+      } else {
+        const parsed = Number(memberId);
+        if (!Number.isNaN(parsed)) {
+          deactivateUser(parsed);
+        }
+      }
+
+      setStatusMessage("Miembro eliminado correctamente.");
+    } catch {
+      setStatusMessage("Error al eliminar miembro. Revisa la consola.");
+    } finally {
+      setDeletingMemberId(null);
     }
   }
 
@@ -751,8 +1090,16 @@ export function EquiposView() {
         )}
       </header>
 
-      <div className="flex flex-1 gap-4 p-4 md:p-6 overflow-hidden">
-        {/* Left: team list */}
+      {statusMessage && (
+        <div className="px-4 md:px-8 py-2 text-sm text-green-700 bg-green-100 border border-green-200">
+          {statusMessage}
+        </div>
+      )}
+      {isLoadingTeams ? (
+        <div className="flex flex-1 items-center justify-center text-muted-foreground">Cargando equipos...</div>
+      ) : (
+        <div className="flex flex-1 gap-4 p-4 md:p-6 overflow-hidden">
+          {/* Left: team list */}
         <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
           {teams.map((team) => (
             <TeamCard
@@ -772,9 +1119,22 @@ export function EquiposView() {
             onEdit={() => setEditingTeam(activeTeam)}
             onMemberAdded={handleMemberAdded}
             onMemberRemove={handleMemberRemove}
+            onEditMember={(member) => {
+              if (member.id === 0) {
+                // Create mode
+                setEditingMember(null);
+              } else {
+                // Edit mode
+                setEditingMember(member);
+              }
+              setShowMemberModal(true);
+            }}
+            deletingMemberId={deletingMemberId}
+            isSavingMember={isSavingMember}
           />
         </div>
       </div>
+      )}
 
       <AnimatePresence>
         {(showAddTeam || editingTeam) && (
@@ -784,7 +1144,19 @@ export function EquiposView() {
               setShowAddTeam(false);
               setEditingTeam(null);
             }}
-            onSave={handleSaveTeam}
+            onSave={refreshTeams}
+          />
+        )}
+        {showMemberModal && (
+          <AddMemberModal
+            onClose={() => {
+              setShowMemberModal(false);
+              setEditingMember(null);
+            }}
+            onAdd={(name, email, iconId) => handleMemberAdded(activeTeam.id, name, email, iconId)}
+            onUpdate={handleUpdateMember}
+            initialUser={editingMember ?? undefined}
+            members={activeTeam.members}
           />
         )}
       </AnimatePresence>

@@ -105,6 +105,7 @@ const PRIORITY_DOT: Record<TicketPriority, string> = {
   Alta: "#ef4444",
   Media: "#eab308",
   Baja: "#22c55e",
+  Vencido: "#6b7280",
 };
 
 export function PriorityBadge({ priority, expired }: PriorityBadgeProps) {
@@ -179,7 +180,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
 // ----- Type icon -----
 import { type TicketType } from "@/lib/mock-tickets";
-import { Monitor, Printer, Wifi, HelpCircle } from "lucide-react";
+import { Monitor, Printer, Wifi, HelpCircle, Users, Code } from "lucide-react";
 
 interface TypeIconProps {
   type: TicketType;
@@ -189,6 +190,8 @@ const TYPE_ICON: Record<TicketType, React.ElementType> = {
   computo: Monitor,
   impresora: Printer,
   red: Wifi,
+  crm: Users,
+  programas: Code,
   otro: HelpCircle,
 };
 

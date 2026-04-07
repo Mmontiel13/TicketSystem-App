@@ -1,111 +1,89 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export type UserRole = "admin" | "user";
 export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
 
-export interface MockUser {
+export interface UserProfile {
   id: number;
+  authId?: string;
   name: string;
   email: string;
-  password: string;
   role: UserRole;
   iconId: IconUserId;
   isActive: boolean;
   deletedAt: Date | null;
 }
 
-const INITIAL_USERS: MockUser[] = [
-  {
-    id: 1,
-    name: "Admin Principal",
-    email: "admin@asiatech.com",
-    password: "Admin123!",
-    role: "admin",
-    iconId: "Users",
-    isActive: true,
-    deletedAt: null,
-  },
-  {
-    id: 2,
-    name: "Usuario Estandar",
-    email: "user@asiatech.com",
-    password: "User123!",
-    role: "user",
-    iconId: "Cat",
-    isActive: true,
-    deletedAt: null,
-  },
-  {
-    id: 3,
-    name: "Usuario Inactivo",
-    email: "disabled@asiatech.com",
-    password: "Disable123!",
-    role: "user",
-    iconId: "Rabbit",
-    isActive: false,
-    deletedAt: new Date(),
-  },
-];
-
-const DEFAULT_USER: MockUser = INITIAL_USERS[0];
+const DEFAULT_USER: UserProfile = {
+  id: 0,
+  name: "Invitado",
+  email: "",
+  role: "user",
+  iconId: "Users",
+  isActive: false,
+  deletedAt: null,
+};
 
 interface UserContextValue {
-  user: MockUser;
-  users: MockUser[];
+  user: UserProfile;
+  users: UserProfile[];
   isLoggedIn: boolean;
-  authenticate: (identifier: string, password: string) => { success: boolean; message?: string };
-  logout: () => void;
-  addUser: (user: Omit<MockUser, "id" | "deletedAt" | "isActive"> & { id?: number }) => MockUser;
+  authenticate: (identifier: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  logout: () => Promise<void>;
+  addUser: (user: Omit<UserProfile, "id" | "deletedAt" | "isActive"> & { id?: number }) => UserProfile;
   deactivateUser: (id: number) => void;
 }
 
 const UserContext = createContext<UserContextValue>({
   user: DEFAULT_USER,
-  users: INITIAL_USERS,
+  users: [],
   isLoggedIn: false,
-  authenticate: () => ({ success: false, message: "No auth configured" }),
-  logout: () => {},
+  authenticate: async () => ({ success: false, message: "Autenticación no configurada" }),
+  logout: async () => {},
   addUser: () => DEFAULT_USER,
   deactivateUser: () => {},
 });
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<MockUser[]>(INITIAL_USERS);
-  const [user, setUser] = useState<MockUser>(DEFAULT_USER);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+export function UserProvider({
+  children,
+  initialUser,
+}: {
+  children: ReactNode;
+  initialUser?: UserProfile | null;
+}) {
+  const [user, setUser] = useState<UserProfile>(initialUser ?? DEFAULT_USER);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(Boolean(initialUser));
 
-  const authenticate = (identifier: string, password: string) => {
-    const normalized = identifier.trim().toLowerCase();
-    const candidate = users.find(
-      (u) =>
-        (u.email.toLowerCase() === normalized || u.name.toLowerCase() === normalized) &&
-        u.password === password,
-    );
-
-    if (!candidate) {
-      return { success: false, message: "Credenciales incorrectas" };
+  useEffect(() => {
+    if (initialUser) {
+      setUser(initialUser);
+      setIsLoggedIn(true);
     }
+  }, [initialUser]);
 
-    if (!candidate.isActive) {
-      return { success: false, message: "Usuario inactivo" };
-    }
-
-    setUser(candidate);
-    setIsLoggedIn(true);
-
-    return { success: true };
+  const authenticate = async (identifier: string, password: string) => {
+    return { success: false, message: "Usa el flujo de inicio de sesión de Supabase." };
   };
 
-  const logout = () => {
-    setIsLoggedIn(false);
-    setUser(DEFAULT_USER);
+  const logout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error during sign out:", error);
+    } finally {
+      setUser(DEFAULT_USER);
+      setIsLoggedIn(false);
+    }
   };
 
-  const addUser = (incoming: Omit<MockUser, "id" | "deletedAt" | "isActive"> & { id?: number }) => {
+  const addUser = (incoming: Omit<UserProfile, "id" | "deletedAt" | "isActive"> & { id?: number }) => {
     const newUserId = incoming.id ?? Date.now();
-    const newUser: MockUser = {
+    const newUser: UserProfile = {
       ...incoming,
       id: newUserId,
       isActive: true,

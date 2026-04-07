@@ -18,3 +18,4 @@ node_modules
 /lib/generated/prisma
 
 .agents
+/lib/generated/prisma

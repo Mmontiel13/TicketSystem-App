@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@/lib/user-context";
+import { createClient } from "@/lib/supabase/client";
 import {
   DndContext,
   PointerSensor,
@@ -29,7 +30,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { MOCK_TICKETS, type Ticket } from "@/lib/mock-tickets";
 import {
   RemainingBar,
   PriorityBadge,
@@ -37,6 +37,7 @@ import {
   TypeIcon,
 } from "@/components/ticket-cells";
 import { CreateTicketModal } from "@/components/create-ticket-modal";
+import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
 
 /* ─── Client-only time ────────────────────────────────────────────────────────── */
 
@@ -58,11 +59,118 @@ function ClientTime({ iso }: { iso: string }) {
 type Tab = "Todos" | "Pendientes" | "Completados";
 type SortKey = "default" | "prioridad" | "llegada";
 
+type TicketType = "computo" | "impresora" | "red" | "crm" | "programas" | "otro";
+type TicketStatus = "Pendiente" | "En proceso" | "Terminada";
+type TicketPriority = "Alta" | "Media" | "Baja" | "Vencido";
+
+interface Ticket {
+  id: string;
+  dbId: number;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  arrival_time: string;
+  max_wait_minutes: number;
+  area: string;
+  usuario: string;
+  user_id: number;
+  team_id: number;
+  user_avatar_icon: IconUserId;
+}
+
+interface DbTicketRow {
+  id: number;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  arrival_time: string;
+  max_wait_minutes: number;
+  team_id: number;
+  user_id: number;
+  is_active?: boolean;
+  users?: { full_name: string; avatar_icon: IconUserId };
+  teams?: { name: string };
+}
+
 const PRIORITY_ORDER: Record<string, number> = { Alta: 0, Media: 1, Baja: 2 };
 
 function isExpiredAt(ticket: Ticket, nowMs: number): boolean {
   const elapsed = nowMs - new Date(ticket.arrival_time).getTime();
   return elapsed >= ticket.max_wait_minutes * 60 * 1000;
+}
+
+/* ─── Status dropdown for mobile ────────────────────────────────────────────── */
+
+function StatusDropdown({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Ticket["status"];
+  onChange: (v: Ticket["status"]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const OPTIONS: Ticket["status"][] = [
+    "Pendiente",
+    "En proceso",
+    "Terminada",
+  ];
+
+  return (
+    <div className="relative">
+      <button
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors min-w-[120px]",
+          "border-zinc-300 bg-white text-zinc-900",
+          "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-foreground",
+          "hover:border-zinc-500 dark:hover:border-zinc-400",
+          disabled && "opacity-60 cursor-not-allowed"
+        )}
+      >
+        {value}
+        <ChevronDown size={12} />
+      </button>
+
+      <AnimatePresence>
+        {open && !disabled && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 mt-1 w-full rounded-xl border border-border bg-popover z-50 overflow-hidden shadow-lg"
+          >
+            {OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
+                  value === opt
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {opt}
+                {value === opt && (
+                  <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 /* ─── Sortable table row ─────────────────────────────────────────────────────── */
@@ -76,6 +184,8 @@ function SortableRow({
   isExpanded,
   onToggleExpand,
   onStatusChange,
+  onDelete,
+  myUserId,
 }: {
   ticket: Ticket;
   selected: boolean;
@@ -85,6 +195,8 @@ function SortableRow({
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (status: Ticket['status']) => void;
+  onDelete: (ticket: Ticket) => void;
+  myUserId: number | null;
 }) {
   const {
     attributes,
@@ -98,7 +210,7 @@ function SortableRow({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.4 : 0.8,
   };
 
   const expired = isExpiredAt(ticket, nowMs);
@@ -116,7 +228,7 @@ function SortableRow({
       animate={{ opacity: isDragging ? 0.4 : 1 }}
       className={cn(
         "border-b border-border/60 transition-colors",
-        selected ? "bg-zinc-800/40" : "hover:bg-accent/50",
+        selected ? "bg-zinc-1000/40" : "hover:bg-accent/50",
       )}
       {...attributes}
     >
@@ -134,7 +246,7 @@ function SortableRow({
         />
       </td>
 
-      <td className="px-3 py-3 max-w-[220px]">
+      <td className="px-3 py-3 max-w-55 min-w-[200px]">
         <button
           onClick={onToggleExpand}
           className="text-left w-full"
@@ -154,18 +266,18 @@ function SortableRow({
         </button>
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[80px]">
         <TypeIcon type={ticket.type} />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[80px]">
         <PriorityBadge
           priority={ticket.priority}
           expired={expired}
         />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[100px]">
         <RemainingBar
           arrivalTime={ticket.arrival_time}
           maxWaitMinutes={ticket.max_wait_minutes}
@@ -173,47 +285,49 @@ function SortableRow({
         />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[120px]">
         {isAdmin ? (
-          <select
-            aria-label={`Estado de ${ticket.id}`}
+          <StatusDropdown
             value={ticket.status}
-            onChange={(e) => onStatusChange(e.target.value as Ticket['status'])}
-            className={cn(
-              "appearance-none min-w-[120px] rounded-md border p-1 px-2 text-xs font-medium transition-colors",
-              "border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500",
-              "focus-visible:border-primary focus-visible:ring-primary/40 focus-visible:outline-none focus-visible:ring-1",
-              "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-white",
-              "hover:border-zinc-500 dark:hover:border-zinc-400",
-              expired ? "opacity-60 cursor-not-allowed" : ""
-            )}
+            onChange={onStatusChange}
             disabled={expired}
-          >
-            <option value="Pendiente">Pendiente</option>
-            <option value="En proceso">En proceso</option>
-            <option value="Terminada">Terminada</option>
-          </select>
+          />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
       </td>
 
-      <td className="px-3 py-3 text-foreground text-xs tabular-nums whitespace-nowrap">
+      <td className="px-3 py-3 text-foreground text-xs tabular-nums whitespace-nowrap min-w-[80px]">
         <ClientTime iso={ticket.arrival_time} />
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[100px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
           <Users size={12} className="text-zinc-500" />
           {ticket.area}
         </span>
       </td>
 
-      <td className="px-3 py-3">
+      <td className="px-3 py-3 min-w-[120px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
-          <UserCircle size={14} className="text-zinc-500" />
+          {(() => {
+            const UserIcon = ICON_MAP[ticket.user_avatar_icon] || UserCircle;
+            return <UserIcon size={14} className="text-zinc-500" />;
+          })()}
           {ticket.usuario}
         </span>
+      </td>
+
+      <td className="px-3 py-3 min-w-[80px]">
+        {(isAdmin || ticket.user_id === myUserId) && (
+          <button
+            type="button"
+            onClick={() => onDelete(ticket)}
+            className="text-xs text-rose-600 hover:text-rose-800"
+          >
+            Eliminar
+          </button>
+        )}
       </td>
     </motion.tr>
   );
@@ -228,6 +342,8 @@ function MobileTicketCard({
   isExpanded,
   onToggleExpand,
   onStatusChange,
+  onDelete,
+  myUserId,
 }: {
   ticket: Ticket;
   nowMs: number;
@@ -235,6 +351,8 @@ function MobileTicketCard({
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStatusChange: (status: Ticket['status']) => void;
+  onDelete: (ticket: Ticket) => void;
+  myUserId: number | null;
 }) {
   const expired = isExpiredAt(ticket, nowMs);
   const truncated = ticket.description.length > 80;
@@ -274,28 +392,17 @@ function MobileTicketCard({
 
       <div className="flex items-center gap-3 flex-wrap">
         <TypeIcon type={ticket.type} />
+
         {isAdmin ? (
-          <select
-            aria-label={`Estado de ${ticket.id}`}
+          <StatusDropdown
             value={ticket.status}
-            onChange={(e) => onStatusChange(e.target.value as Ticket['status'])}
-            className={cn(
-              "appearance-none min-w-[120px] rounded-md border p-1 px-2 text-xs font-medium transition-colors",
-              "border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500",
-              "focus-visible:border-primary focus-visible:ring-primary/40 focus-visible:outline-none focus-visible:ring-1",
-              "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-white",
-              "hover:border-zinc-500 dark:hover:border-zinc-400",
-              expired ? "opacity-60 cursor-not-allowed" : ""
-            )}
+            onChange={onStatusChange}
             disabled={expired}
-          >
-            <option value="Pendiente">Pendiente</option>
-            <option value="En proceso">En proceso</option>
-            <option value="Terminada">Terminada</option>
-          </select>
+          />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
+
         <span className="text-zinc-500 text-xs tabular-nums">
           <ClientTime iso={ticket.arrival_time} />
         </span>
@@ -317,6 +424,16 @@ function MobileTicketCard({
           {ticket.usuario}
         </span>
       </div>
+
+      {(isAdmin || ticket.user_id === myUserId) && (
+        <button
+          type="button"
+          onClick={() => onDelete(ticket)}
+          className="text-xs text-rose-600 hover:text-rose-800"
+        >
+          Eliminar
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -327,16 +444,21 @@ export function TicketsView() {
   const { user } = useUser();
   const { toast } = useToast();
   const isAdmin = user.role === "admin";
+  const supabase = createClient();
 
   const [tab, setTab] = useState<Tab>("Todos");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortOpen, setSortOpen] = useState(false);
-  const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [nowMs, setNowMs] = useState(0);
+  const [myUserId, setMyUserId] = useState<number | null>(null);
+  const [myTeamId, setMyTeamId] = useState<number | null>(null);
+  const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string; avatar_icon?: string }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // IMPORTANT: avoid dnd-kit SSR hydration mismatches (aria-describedby IDs)
   const [mounted, setMounted] = useState(false);
@@ -414,42 +536,236 @@ export function TicketsView() {
     });
   }
 
-  const handleStatusChange = (ticketId: string, nextStatus: Ticket['status']) => {
-    setTickets((prev) =>
-      prev.map((t) => {
-        if (t.id !== ticketId) return t;
+  async function fetchAreaMembers(teamId: number | null) {
+    if (!teamId) {
+      setAreaMembers([]);
+      return;
+    }
 
-        const expired = isExpiredAt(t, nowMs);
-        if (expired && nextStatus === 'En proceso') {
-          toast({
-            title: 'No se puede avanzar',
-            description: 'Este ticket ya ha vencido y no puede pasar a En proceso.',
-          });
-          return t;
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name, avatar_icon")
+      .eq("team_id", teamId)
+      .eq("is_active", true);
+
+    if (error) {
+      console.error("Error fetching team members", error);
+      setAreaMembers([]);
+      return;
+    }
+
+    setAreaMembers(data ?? []);
+  }
+
+  async function fetchTickets(teamId: number | null, isAdminUser: boolean) {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("tickets")
+        .select("*, users(full_name, avatar_icon), teams(name)")
+        .eq("is_active", true)
+        .order("arrival_time", { ascending: false });
+
+      if (!isAdminUser) {
+        if (teamId) {
+          query = query.eq("team_id", teamId);
+        } else {
+          query = query.eq("team_id", -1);
         }
+      }
 
-        return { ...t, status: nextStatus };
-      }),
+      const { data, error } = await query;
+      if (error) {
+        console.error("Error fetching tickets", error);
+        setTickets([]);
+        return;
+      }
+
+      const mapped = (data ?? []).map((row) => ({
+        id: `TK-${String(row.id).padStart(3, "0")}`,
+        dbId: row.id,
+        description: row.description,
+        type: row.type,
+        priority: row.priority,
+        status: row.status,
+        arrival_time: row.arrival_time,
+        max_wait_minutes: row.max_wait_minutes,
+        area: row.teams?.name ?? "",
+        usuario: row.users?.full_name ?? "",
+        user_id: row.user_id,
+        team_id: row.team_id,
+        user_avatar_icon: row.users?.avatar_icon ?? "Users",
+      } as Ticket));
+
+      setTickets(mapped);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCurrentUserAndTickets() {
+    setLoading(true);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      let resolvedUserId = user.id;
+      let resolvedRole = user.role;
+      let resolvedTeamId = myTeamId;
+
+      if (authError) {
+        console.warn("No auth session, using context user", authError);
+      }
+
+      const email = authData?.user?.email ?? user.email;
+      if (email) {
+        const { data: userRow, error: userError } = await supabase
+          .from("users")
+          .select("id, team_id, role")
+          .eq("email", email)
+          .single();
+
+        if (userError) {
+          console.warn("Could not resolve supabase user by email", userError);
+        } else if (userRow) {
+          resolvedUserId = Number(userRow.id);
+          resolvedTeamId = Number(userRow.team_id);
+          resolvedRole = (userRow.role as "admin" | "user") ?? resolvedRole;
+        }
+      }
+
+      setMyUserId(resolvedUserId);
+      setMyTeamId(resolvedTeamId);
+
+      await fetchAreaMembers(resolvedTeamId);
+      await fetchTickets(resolvedTeamId, resolvedRole === "admin");
+    } catch (e) {
+      console.error("Error loading tickets", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCurrentUserAndTickets();
+  }, [user.role]);
+
+  const handleStatusChange = async (ticketId: string, nextStatus: Ticket["status"]) => {
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+
+    const expired = isExpiredAt(ticket, nowMs);
+    if (expired && nextStatus === "En proceso") {
+      toast({
+        title: "No se puede avanzar",
+        description: "Este ticket ya ha vencido y no puede pasar a En proceso.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status: nextStatus })
+      .eq("id", ticket.dbId);
+
+    if (error) {
+      toast({
+        title: "Error actualizando estado",
+        description: "No se pudo actualizar el estado del ticket.",
+      });
+      console.error(error);
+      return;
+    }
+
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)),
     );
   };
 
-  const handleAddTicket = (data: {
+  const handleAddTicket = async (data: {
     description: string;
-    type: string;
+    type: TicketType;
+    assignedMemberIds: number[];
+    allArea: boolean;
     maxWaitMinutes: number;
   }) => {
-    const newTicket: Ticket = {
-      id: `TK-${String(tickets.length + 1).padStart(3, "0")}`,
-      description: data.description,
-      type: data.type as Ticket["type"],
-      priority: "Media",
-      status: "Pendiente",
-      arrival_time: new Date().toISOString(),
-      max_wait_minutes: data.maxWaitMinutes,
-      area: "Progra",
-      usuario: "Usuario",
-    };
-    setTickets((prev) => [newTicket, ...prev]);
+    if (!myUserId || !myTeamId) {
+      toast({
+        title: "Usuario no identificado",
+        description: "No se pudo determinar usuario/área para crear ticket.",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const arrivalTime = new Date().toISOString();
+
+    try {
+      const { data: inserted, error } = await supabase
+        .from("tickets")
+        .insert([
+          {
+            description: data.description,
+            type: data.type,
+            priority: "Media",
+            status: "Pendiente",
+            arrival_time: arrivalTime,
+            max_wait_minutes: data.maxWaitMinutes,
+            user_id: myUserId,
+            team_id: myTeamId,
+            is_active: true,
+          },
+        ])
+        .select("*")
+        .single();
+
+      if (error || !inserted) {
+        toast({
+          title: "Error al crear ticket",
+          description: "No se pudo guardar el ticket.",
+        });
+        console.error(error);
+        return;
+      }
+
+      toast({
+        title: "Ticket creado",
+        description: "El ticket fue generado correctamente.",
+      });
+
+      await fetchTickets(myTeamId, isAdmin);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTicket = async (ticket: Ticket) => {
+    if (!isAdmin && ticket.user_id !== myUserId) {
+      toast({
+        title: "No autorizado",
+        description: "No tienes permiso para eliminar este ticket.",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tickets")
+      .update({ is_active: false })
+      .eq("id", ticket.dbId);
+
+    if (error) {
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el ticket.",
+      });
+      console.error(error);
+      return;
+    }
+
+    setTickets((prev) => prev.filter((t) => t.dbId !== ticket.dbId));
+    toast({
+      title: "Ticket eliminado",
+      description: "Ticket eliminado correctamente.",
+    });
   };
 
   const SORT_LABELS: Record<SortKey, string> = {
@@ -487,7 +803,7 @@ export function TicketsView() {
               }}
               className={cn(
                 "px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors",
-                tab === t ? "bg-zinc-700 text-white" : "text-muted-foreground hover:text-white",
+                tab === t ? "bg-zinc-700 text-white dark:bg-zinc-700 dark:text-white" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
               {t}
@@ -512,12 +828,7 @@ export function TicketsView() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-1 w-44 rounded-xl border border-zinc-700/60 z-30 overflow-hidden"
-                style={{
-                  background: "rgba(24,24,27,0.90)",
-                  backdropFilter: "blur(16px)",
-                  WebkitBackdropFilter: "blur(16px)",
-                }}
+                className="absolute right-0 mt-1 w-44 rounded-xl border border-border bg-popover z-30 overflow-hidden"
               >
                 <div className="px-3 py-2 flex items-center justify-between border-b border-border">
                   <ChevronDown size={12} className="text-muted-foreground" />
@@ -534,12 +845,12 @@ export function TicketsView() {
                     }}
                     className={cn(
                       "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
-                      sortKey === k ? "text-white" : "text-muted-foreground hover:text-white",
+                      sortKey === k ? "text-foreground " : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {SORT_LABELS[k]}
                     {sortKey === k && (
-                      <span className="w-1 h-4 rounded-full bg-white inline-block" />
+                      <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
                     )}
                   </button>
                 ))}
@@ -551,7 +862,7 @@ export function TicketsView() {
 
       {/* Desktop table (client-only to avoid dnd-kit hydration mismatches) */}
       <div className="hidden md:block flex-1 px-8 overflow-auto">
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-xl border border-border overflow-hidden relative">
           {mounted ? (
             <DndContext
               sensors={sensors}
@@ -571,44 +882,47 @@ export function TicketsView() {
                         aria-label="Seleccionar todos"
                       />
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Check
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[200px]">
+                      Descripción
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[80px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <LayoutGrid size={12} />
                         Tipo
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[80px]">
                       Prioridad
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[100px]">
                       Restante
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[120px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <LayoutGrid size={12} />
                         Status
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[80px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <Clock size={12} />
                         Llegada
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[100px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <Users size={12} />
                         Área
                       </span>
                     </th>
-                    <th className="px-3 py-3 text-left">
+                    <th className="px-3 py-3 text-left min-w-[120px]">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         <UserCircle size={12} />
                         Usuario
                       </span>
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground min-w-[80px]">
+                      Acciones
                     </th>
                   </tr>
                 </thead>
@@ -645,6 +959,8 @@ export function TicketsView() {
                             })
                           }
                           onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                          onDelete={handleDeleteTicket}
+                          myUserId={myUserId}
                         />
                       ))
                     )}
@@ -682,6 +998,8 @@ export function TicketsView() {
                     })
                   }
                   onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                  onDelete={handleDeleteTicket}
+                  myUserId={myUserId}
                 />
               ))
             )}
@@ -718,6 +1036,7 @@ export function TicketsView() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onAdd={handleAddTicket}
+        members={areaMembers}
       />
     </div>
   );
