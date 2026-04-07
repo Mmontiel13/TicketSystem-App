@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { TicketType } from "@/lib/mock-tickets";
 import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 const TICKET_TYPES = [
   { id: "computo", label: "PC", icon: Monitor },
@@ -17,10 +18,10 @@ const TICKET_TYPES = [
 ] as const;
 
 const WAIT_STEPS = [
-  { label: "10mins", value: 10 },
-  { label: "30mins", value: 30 },
-  { label: "1Hrs", value: 60 },
-  { label: "Puede Esperar", value: 120 },
+  { label: "10m", value: 10 },
+  { label: "30m", value: 30 },
+  { label: "1h", value: 60 },
+  { label: "2h", value: 120 },
 ];
 
 interface CreateTicketModalProps {
@@ -35,7 +36,6 @@ interface CreateTicketModalProps {
   }) => void;
   members: { id: number; full_name: string; avatar_icon?: string }[];
 }
-
 
 export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicketModalProps) {
   const { toast } = useToast();
@@ -93,172 +93,211 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
   };
 
   return (
-    /* Backdrop */
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      {/* Modal */}
-      <div
-        className={cn(
-          "relative w-full max-w-sm rounded-2xl border border-border p-6 flex flex-col gap-5",
-          // “glass” effect compatible con ambos temas
-          "bg-popover/80 backdrop-blur-xl"
-        )}
+    <AnimatePresence>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Cerrar"
-        >
-          <X size={16} />
-        </button>
-
-        {/* Header */}
-        <div>
-          <h2 className="text-foreground font-semibold text-base">Agregando un nuevo Ticket</h2>
-          <p className="text-muted-foreground text-xs mt-0.5">
-            El ticket será resuelto según la disponibilidad y urgencia.
-          </p>
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-1.5 block">
-            Descripción del Problema
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            placeholder="Describe el problema..."
-            className={cn(
-              "w-full rounded-lg border border-input bg-background text-foreground text-sm px-3 py-2 resize-none",
-              "placeholder:text-muted-foreground/70",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors",
-              errors.description && "border-destructive focus:ring-destructive focus:border-destructive"
-            )}
-          />
-          {errors.description && (
-            <p className="text-xs text-destructive mt-1">{errors.description}</p>
-          )}
-        </div>
-
-        {/* Type */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-2 block">Tipo de error:</label>
-          <div className="flex gap-3">
-            {TICKET_TYPES.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setSelectedType(id)}
-                className={cn(
-                  "flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors text-[10px]",
-                  selectedType === id
-                    ? "border-ring bg-accent text-foreground"
-                    : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground",
-                  errors.type && "border-destructive"
-                )}
-                type="button"
-              >
-                <Icon size={20} />
-                {label}
-              </button>
-            ))}
-          </div>
-          {errors.type && (
-            <p className="text-xs text-destructive mt-1">{errors.type}</p>
-          )}
-        </div>
-
-        {/* Members */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-muted-foreground">Integrante Afectado</label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-              Toda el Área
-              <input
-                type="checkbox"
-                checked={allArea}
-                onChange={(e) => setAllArea(e.target.checked)}
-                className="accent-[color:var(--color-primary)]"
-              />
-            </label>
-          </div>
-
-          <p className="text-xs text-muted-foreground mb-2">Integrantes:</p>
-          <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
-            {members.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No hay integrantes en el área.</p>
-            ) : (
-              members.map((m) => (
-                <label key={m.id} className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
-                      return <Icon size={24} className="text-muted-foreground" />;
-                    })()}
-                    <span className="text-sm text-foreground">{m.full_name}</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={allArea || selectedMembers.includes(m.id)}
-                    disabled={allArea}
-                    onChange={() => toggleMember(m.id)}
-                    className="accent-[color:var(--color-primary)]"
-                  />
-                </label>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Wait time slider */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-3 block text-center">
-            Tiempo Máximo que puedes esperar
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={WAIT_STEPS.length - 1}
-            step={1}
-            value={waitIndex}
-            onChange={(e) => setWaitIndex(Number(e.target.value))}
-            className="w-full accent-[color:var(--color-primary)]"
-          />
-          <div className="flex justify-between mt-1">
-            {WAIT_STEPS.map((s, i) => (
-              <span
-                key={s.value}
-                className={cn(
-                  "text-[10px]",
-                  i === waitIndex ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {s.label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Submit */}
-        <button
-          onClick={handleAdd}
-          disabled={!description.trim() || !selectedType}
+        {/* Modal */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ duration: 0.2 }}
           className={cn(
-            "flex items-center justify-center gap-2 w-full py-2 rounded-lg",
-            "bg-primary text-primary-foreground text-sm font-medium",
-            "hover:opacity-90 transition-colors",
-            "disabled:opacity-40 disabled:cursor-not-allowed"
+            "relative w-full max-w-sm rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 flex flex-col gap-3 sm:gap-5",
+            "bg-popover/80 backdrop-blur-xl max-h-[90vh] overflow-y-auto"
           )}
-          type="button"
         >
-          <Plus size={14} />
-          Agregar
-        </button>
-      </div>
-    </div>
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute top-3 sm:top-4 right-3 sm:right-4 text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-accent rounded-lg"
+            aria-label="Cerrar"
+          >
+            <X size={18} className="sm:block" />
+            <X size={20} className="hidden sm:block" />
+          </button>
+
+          {/* Header */}
+          <div className="pr-8">
+            <h2 className="text-foreground font-semibold text-base sm:text-lg">Agregando un nuevo Ticket</h2>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
+              El ticket será resuelto según la disponibilidad y urgencia.
+            </p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="text-xs sm:text-sm text-muted-foreground mb-1.5 block font-medium">
+              Descripción del Problema
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe el problema..."
+              className={cn(
+                "w-full rounded-lg border border-input bg-background text-foreground text-xs sm:text-sm px-3 py-2 resize-none",
+                "placeholder:text-muted-foreground/70",
+                "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors",
+                errors.description && "border-destructive focus:ring-destructive focus:border-destructive"
+              )}
+            />
+            {errors.description && (
+              <p className="text-xs text-destructive mt-1">{errors.description}</p>
+            )}
+          </div>
+
+          {/* Type - Responsive grid */}
+          <div>
+            <label className="text-xs sm:text-sm text-muted-foreground mb-2 block font-medium">Tipo de error:</label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+              {TICKET_TYPES.map(({ id, label, icon: Icon }) => (
+                <motion.button
+                  key={id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedType(id)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 p-2 sm:p-2.5 rounded-lg border transition-all",
+                    "text-[8px] sm:text-[10px] font-medium",
+                    selectedType === id
+                      ? "border-ring bg-accent text-foreground shadow-md"
+                      : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground hover:bg-accent/50",
+                    errors.type && !selectedType && "border-destructive"
+                  )}
+                  type="button"
+                >
+                  <Icon size={16} className="sm:hidden" />
+                  <Icon size={20} className="hidden sm:block" />
+                  <span className="leading-tight text-center truncate">{label}</span>
+                </motion.button>
+              ))}
+            </div>
+            {errors.type && (
+              <p className="text-xs text-destructive mt-1">{errors.type}</p>
+            )}
+          </div>
+
+          {/* Members - Responsive */}
+          <div className="max-h-48 sm:max-h-56 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                Integrante Afectado
+              </label>
+              <label className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                Toda el Área
+                <input
+                  type="checkbox"
+                  checked={allArea}
+                  onChange={(e) => setAllArea(e.target.checked)}
+                  className="accent-[color:var(--color-primary)] cursor-pointer"
+                />
+              </label>
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-2">Integrantes:</p>
+            <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+              {members.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">
+                  No hay integrantes en el área.
+                </p>
+              ) : (
+                members.map((m) => (
+                  <motion.label
+                    key={m.id}
+                    whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
+                    className="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-accent/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {(() => {
+                        const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
+                        return <Icon size={18} className="text-muted-foreground shrink-0 sm:hidden" />;
+                      })()}
+                      {(() => {
+                        const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
+                        return <Icon size={24} className="text-muted-foreground shrink-0 hidden sm:block" />;
+                      })()}
+                      <span className="text-xs sm:text-sm text-foreground truncate">
+                        {m.full_name}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={allArea || selectedMembers.includes(m.id)}
+                      disabled={allArea}
+                      onChange={() => toggleMember(m.id)}
+                      className="accent-[color:var(--color-primary)] cursor-pointer shrink-0"
+                    />
+                  </motion.label>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Wait time slider - Responsive */}
+          <div className="space-y-2 sm:space-y-3">
+            <label className="text-xs sm:text-sm text-muted-foreground block text-center font-medium">
+              Tiempo Máximo que puedes esperar
+            </label>
+            <div className="px-1">
+              <input
+                type="range"
+                min={0}
+                max={WAIT_STEPS.length - 1}
+                step={1}
+                value={waitIndex}
+                onChange={(e) => setWaitIndex(Number(e.target.value))}
+                className="w-full accent-[color:var(--color-primary)] cursor-pointer"
+              />
+            </div>
+            <div className="flex justify-between px-1">
+              {WAIT_STEPS.map((s, i) => (
+                <span
+                  key={s.value}
+                  className={cn(
+                    "text-[8px] sm:text-[10px] font-medium transition-colors",
+                    i === waitIndex ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {s.label}
+                </span>
+              ))}
+            </div>
+            {/* Display current value */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">
+                Máximo: <span className="text-foreground font-semibold">{WAIT_STEPS[waitIndex].value} minutos</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleAdd}
+            disabled={!description.trim() || !selectedType}
+            className={cn(
+              "flex items-center justify-center gap-2 w-full py-2 sm:py-2.5 rounded-lg",
+              "bg-primary text-primary-foreground text-xs sm:text-sm font-medium",
+              "hover:opacity-90 transition-colors",
+              "disabled:opacity-40 disabled:cursor-not-allowed mt-2 sm:mt-0"
+            )}
+            type="button"
+          >
+            <Plus size={14} className="sm:hidden" />
+            <Plus size={16} className="hidden sm:block" />
+            Agregar
+          </motion.button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

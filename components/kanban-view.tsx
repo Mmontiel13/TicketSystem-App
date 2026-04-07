@@ -39,6 +39,8 @@ import {
   Rabbit,
   Fish,
   Cat,
+  Menu,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,18 +66,6 @@ export interface KanbanTask {
   end_date: string;
   assigned_to: number[];
   team_id: number;
-}
-
-interface DbTaskRow {
-  id: number;
-  title: string;
-  description: string;
-  status: KanbanColumn;
-  start_date: string;
-  end_date: string;
-  assigned_to: number[];
-  team_id: number;
-  is_active?: boolean;
 }
 
 export const ICON_MAP: Record<IconUserId, React.ElementType> = {
@@ -111,7 +101,7 @@ const example13 = 'text-foreground';
 // Line 505
 const example14 = 'text-foreground';
 
-/* ─── TaskCard (glassmorphism style) ─────────────────────────────────────────── */
+/* ─── TaskCard ───────────────────────────────────────────────────────────────── */
 
 function TaskCardContent({
   task,
@@ -134,15 +124,17 @@ function TaskCardContent({
   return (
     <div
       className={cn(
-        "rounded-lg border border-white/20 bg-white/10 backdrop-blur-md p-3 flex flex-col gap-2 select-none",
+        "rounded-lg border border-border bg-card p-2 sm:p-3 flex flex-col gap-1.5 sm:gap-2 select-none",
         isDragging && "opacity-50 ring-1 ring-ring/20"
       )}
     >
-      <div className="flex items-center justify-between">
-        <GripVertical size={14} className="text-white/50 cursor-grab" />
+      <div className="flex items-center justify-between gap-1">
+        <GripVertical size={12} className="text-muted-foreground cursor-grab sm:hidden" />
+        <GripVertical size={14} className="text-muted-foreground cursor-grab hidden sm:block" />
+        
         <div className="relative">
           <button
-            className="text-white/50 hover:text-white transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-accent rounded"
             aria-label="Opciones"
             onClick={(e) => {
               e.stopPropagation();
@@ -150,16 +142,22 @@ function TaskCardContent({
             }}
             type="button"
           >
-            <MoreHorizontal size={14} />
+            <MoreHorizontal size={12} className="sm:hidden" />
+            <MoreHorizontal size={14} className="hidden sm:block" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 mt-1 w-28 rounded-lg border border-white/20 bg-popover/95 backdrop-blur-md text-xs shadow-lg z-20">
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="absolute right-0 mt-1 w-24 sm:w-28 rounded-lg border border-border bg-card text-xs shadow-lg z-20"
+            >
               <button
                 onClick={() => {
                   setShowMenu(false);
                   onEdit!(task);
                 }}
-                className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-foreground"
+                className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-foreground text-[10px] sm:text-xs"
               >
                 Editar
               </button>
@@ -168,53 +166,55 @@ function TaskCardContent({
                   setShowMenu(false);
                   onDelete!(task.id);
                 }}
-                className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-red-500"
+                className="w-full text-left px-2 py-1.5 hover:bg-accent/70 text-red-500 text-[10px] sm:text-xs"
               >
                 Eliminar
               </button>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="text-white font-medium text-xs">{task.title}</p>
-        <p className="text-white/70 text-[11px] leading-relaxed">{descSnippet}</p>
+        <p className="text-foreground font-medium text-[10px] sm:text-xs line-clamp-2">{task.title}</p>
+        <p className="text-foreground/70 text-[9px] sm:text-[11px] leading-relaxed line-clamp-2">{descSnippet}</p>
       </div>
 
-      <div className="flex flex-col gap-0.5">
-        <span className="text-white/50 text-[10px]">Inicio</span>
-        <span className="text-white/70 text-[11px] tabular-nums">
-          {new Date(task.start_date).toLocaleDateString()}
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <span className="text-white/50 text-[10px]">Vencimiento</span>
-        <span className="text-white/70 text-[11px] tabular-nums">
-          {new Date(task.end_date).toLocaleDateString()}
-        </span>
+      <div className="flex gap-2 text-[8px] sm:text-[10px]">
+        <div className="flex-1">
+          <span className="text-foreground/50">Inicio</span>
+          <p className="text-foreground/70 tabular-nums">
+            {new Date(task.start_date).toLocaleDateString("es-MX", { month: "short", day: "numeric" })}
+          </p>
+        </div>
+        <div className="flex-1">
+          <span className="text-foreground/50">Vencimiento</span>
+          <p className="text-foreground/70 tabular-nums">
+            {new Date(task.end_date).toLocaleDateString("es-MX", { month: "short", day: "numeric" })}
+          </p>
+        </div>
       </div>
 
       {assignedMembers.length > 0 && (
-        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-white/10">
-          <span className="text-white/50 text-[10px]">Asignado:</span>
-          <div className="flex -space-x-2">
-            {assignedMembers.slice(0, 4).map((m) => {
+        <div className="flex items-center gap-1.5 mt-1 pt-1.5 border-t border-border">
+          <span className="text-foreground/50 text-[8px]">Asignado:</span>
+          <div className="flex -space-x-1.5">
+            {assignedMembers.slice(0, 3).map((m) => {
               const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
               return (
                 <div
                   key={m.id}
                   title={m.full_name}
-                  className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center shrink-0"
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-muted border border-border flex items-center justify-center shrink-0"
                 >
-                  <Icon size={14} className="text-white/70" />
+                  <Icon size={10} className="text-foreground/70 sm:hidden" />
+                  <Icon size={14} className="text-foreground/70 hidden sm:block" />
                 </div>
               );
             })}
-            {assignedMembers.length > 4 && (
-              <div className="w-6 h-6 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-[10px] text-white/70">
-                +{assignedMembers.length - 4}
+            {assignedMembers.length > 3 && (
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-muted border border-border flex items-center justify-center text-[7px] sm:text-[10px] text-foreground/70">
+                +{assignedMembers.length - 3}
               </div>
             )}
           </div>
@@ -262,8 +262,8 @@ function SortableTaskCard({
       animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.18 }}
-      whileHover={{ scale: 0.97 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
     >
       <TaskCardContent
         task={task}
@@ -301,25 +301,26 @@ function KanbanColumnPanel({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col gap-3 min-w-[220px] flex-1 rounded-lg p-2 transition-colors",
+        "flex flex-col gap-2 sm:gap-3 min-w-[150px] sm:min-w-[220px] flex-1 rounded-lg p-1.5 sm:p-2 transition-colors",
         isOver ? "bg-accent/50 ring-1 ring-ring/20" : "bg-transparent"
       )}
     >
       {/* Column header */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <Icon size={15} className={config.iconClass} />
-          <span className="text-foreground text-sm font-medium">{config.id}</span>
-          <span className="text-muted-foreground text-xs tabular-nums ml-1">
+      <div className="flex items-center justify-between px-0.5 sm:px-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <Icon size={12} className={cn(config.iconClass, "sm:hidden")} />
+          <Icon size={15} className={cn(config.iconClass, "hidden sm:block")} />
+          <span className="text-foreground text-xs sm:text-sm font-medium truncate">{config.id}</span>
+          <span className="text-foreground text-[10px] sm:text-xs tabular-nums ml-1 bg-muted px-1.5 rounded">
             {tasks.length}
           </span>
         </div>
       </div>
 
       {/* Cards */}
-      <div className="min-h-[500px] flex flex-col gap-3">
+      <div className="min-h-[300px] sm:min-h-[500px] flex flex-col gap-2 sm:gap-3">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-3 overflow-y-auto">
+          <div className="flex flex-col gap-2 sm:gap-3 overflow-y-auto pr-1">
             <AnimatePresence mode="popLayout">
               {tasks.map((task) => (
                 <SortableTaskCard
@@ -335,8 +336,8 @@ function KanbanColumnPanel({
         </SortableContext>
 
         {tasks.length === 0 && (
-          <div className="flex-1 rounded-lg border-2 border-dashed border-muted-foreground/50 bg-muted/5 flex items-center justify-center">
-            <span className="text-muted-foreground/50 text-sm">Arrastra una tarea aquí</span>
+          <div className="flex-1 rounded-lg border-2 border-dashed border-foreground/30 bg-muted/5 flex items-center justify-center p-2">
+            <span className="text-foreground/50 text-[10px] sm:text-sm text-center">Arrastra una tarea aquí</span>
           </div>
         )}
       </div>
@@ -432,7 +433,10 @@ function CreateTaskSidebar({
 
   return (
     <>
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="fixed inset-0 z-40 bg-black/40"
         onClick={onClose}
         aria-hidden="true"
@@ -448,56 +452,66 @@ function CreateTaskSidebar({
         aria-modal="true"
         aria-label={task ? "Editar tarea" : "Agregar tarea"}
       >
-        <div className="flex items-start justify-between">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 sm:top-4 right-3 sm:right-4 text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-accent rounded-lg sm:hidden"
+          aria-label="Cerrar"
+          type="button"
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+          aria-label="Cerrar"
+          type="button"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="flex items-start justify-between pr-6 sm:pr-0">
           <div>
-            <h2 className="text-foreground font-semibold text-base">
+            <h2 className="text-foreground font-semibold text-base sm:text-lg">
               {task ? "Editando tarea" : "Agregando tarea"}
             </h2>
-            <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+            <p className="text-foreground text-[10px] sm:text-xs mt-1 leading-relaxed">
               Completa los detalles y asigna miembros del equipo
             </p>
           </div>
-
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0"
-            aria-label="Cerrar"
-            type="button"
-          >
-            <X size={16} />
-          </button>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Título</label>
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-xs font-medium">Título</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Nombre de la tarea..."
-            className={cn(inputClass, errors.title && "border-destructive focus:ring-destructive focus:border-destructive")}
+            className={cn(inputClass, "text-xs", errors.title && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
           {errors.title && <p className="text-destructive text-xs">{errors.title}</p>}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Descripción</label>
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-xs font-medium">Descripción</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={4}
+            rows={3}
             placeholder="Detalles de la tarea..."
-            className={cn(inputClass, "resize-none leading-relaxed", errors.description && "border-destructive focus:ring-destructive focus:border-destructive")}
+            className={cn(inputClass, "resize-none leading-relaxed text-xs", errors.description && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
           {errors.description && <p className="text-destructive text-xs">{errors.description}</p>}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Estado</label>
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-xs font-medium">Estado</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as KanbanColumn)}
-            className={inputClass}
+            className={cn(inputClass, "text-xs")}
           >
             {COLUMNS.map((col) => (
               <option key={col.id} value={col.id}>
@@ -507,39 +521,40 @@ function CreateTaskSidebar({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-muted-foreground text-xs font-medium">Fecha de vencimiento</label>
+        <div className="flex flex-col gap-1">
+          <label className="text-foreground text-xs font-medium">Fecha de vencimiento</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className={cn(inputClass, errors.endDate && "border-destructive focus:ring-destructive focus:border-destructive")}
+            className={cn(inputClass, "text-xs", errors.endDate && "border-destructive focus:ring-destructive focus:border-destructive")}
           />
           {errors.endDate && <p className="text-destructive text-xs">{errors.endDate}</p>}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5 max-h-48 overflow-hidden flex-1">
           <span className="text-foreground text-xs font-medium">Asignar a:</span>
 
-          <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+          <div className="flex flex-col gap-1 overflow-y-auto pr-1">
             {members.length === 0 ? (
-              <p className="text-muted-foreground text-xs">No hay miembros en el área.</p>
+              <p className="text-foreground text-xs">No hay miembros en el área.</p>
             ) : (
               members.map((m) => {
                 const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
                 return (
-                  <div key={m.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon size={18} className="text-muted-foreground" />
-                      <span className="text-foreground text-xs">{m.full_name}</span>
+                  <label key={m.id} className="flex items-center justify-between cursor-pointer p-1.5 rounded hover:bg-accent/30 transition-colors">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Icon size={14} className="text-foreground shrink-0 sm:hidden" />
+                      <Icon size={18} className="text-foreground shrink-0 hidden sm:block" />
+                      <span className="text-foreground text-xs truncate">{m.full_name}</span>
                     </div>
                     <input
                       type="checkbox"
                       checked={selectedMembers.includes(m.id)}
                       onChange={() => toggleMember(m.id)}
-                      className={checkboxClass}
+                      className={cn(checkboxClass, "shrink-0")}
                     />
-                  </div>
+                  </label>
                 );
               })
             )}
@@ -550,10 +565,11 @@ function CreateTaskSidebar({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={handleSave}
-          className={cn(headerButtonClass, "mt-auto justify-center")}
+          className={cn(headerButtonClass, "mt-auto justify-center w-full")}
           type="button"
         >
-          <Plus size={14} />
+          <Plus size={14} className="sm:hidden" />
+          <Plus size={16} className="hidden sm:block" />
           {task ? "Guardar" : "Agregar"}
         </motion.button>
       </motion.div>
@@ -567,7 +583,6 @@ export function KanbanView() {
   const { user } = useUser();
   const supabase = createClient();
   const { toast } = useToast();
-  const isAdmin = user.role === "admin";
 
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [members, setMembers] = useState<KanbanMember[]>([]);
@@ -664,7 +679,6 @@ export function KanbanView() {
     let query = supabase
       .from("tasks")
       .select("*")
-      .eq("is_active", true)
       .eq("team_id", teamId)
       .order("start_date", { ascending: false });
 
@@ -732,33 +746,49 @@ export function KanbanView() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    if (activeId === overId) return;
-
     const task = tasks.find((t) => t.id === activeId);
     if (!task) return;
 
-    const { error } = await supabase
-      .from("tasks")
-      .update({ status: task.status })
-      .eq("id", task.dbId);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: task.status })
+        .eq("id", task.dbId);
 
-    if (error) {
-      toast({
-        title: "Error al actualizar",
-        description: "No se pudo cambiar el estado.",
-      });
-      await fetchTasks(myTeamId!);
-      return;
-    }
-
-    setTasks((prev) => {
-      const activeIndex = prev.findIndex((t) => t.id === activeId);
-      const overIndex = prev.findIndex((t) => t.id === overId);
-      if (activeIndex !== -1 && overIndex !== -1) {
-        return arrayMove(prev, activeIndex, overIndex);
+      if (error) {
+        console.error("Error updating task status:", error);
+        toast({
+          title: "Error al actualizar",
+          description: "No se pudo cambiar el estado de la tarea.",
+          variant: "destructive",
+        });
+        await fetchTasks(myTeamId!);
+        return;
       }
-      return prev;
-    });
+
+      toast({
+        title: "Estado actualizado",
+        description: `Tarea movida a ${task.status}`,
+      });
+
+      if (activeId !== overId) {
+        setTasks((prev) => {
+          const activeIndex = prev.findIndex((t) => t.id === activeId);
+          const overIndex = prev.findIndex((t) => t.id === overId);
+          if (activeIndex !== -1 && overIndex !== -1) {
+            return arrayMove(prev, activeIndex, overIndex);
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.error("Exception updating task:", err);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar el cambio.",
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleAddTask(task: Omit<KanbanTask, "id" | "dbId">) {
@@ -773,7 +803,6 @@ export function KanbanView() {
         end_date: task.end_date,
         assigned_to: task.assigned_to,
         team_id: myTeamId,
-        is_active: true,
       },
     ]);
 
@@ -826,7 +855,7 @@ export function KanbanView() {
 
     const { error } = await supabase
       .from("tasks")
-      .update({ is_active: false })
+      .delete()
       .eq("id", task.dbId);
 
     if (error) {
@@ -843,8 +872,9 @@ export function KanbanView() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-6 md:px-8 py-4 border-b border-border shrink-0">
-        <h1 className="text-foreground font-semibold text-lg">Kanban</h1>
+      {/* Header */}
+      <header className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+        <h1 className="text-foreground font-semibold text-base sm:text-lg md:text-xl">Kanban</h1>
 
         <motion.button
           whileHover={{ scale: 1.03 }}
@@ -853,20 +883,22 @@ export function KanbanView() {
           className={headerButtonClass}
           type="button"
         >
-          <Plus size={14} />
+          <Plus size={12} className="sm:hidden" />
+          <Plus size={14} className="hidden sm:block" />
           <span className="hidden sm:inline">Crear tarea</span>
-          <span className="sm:hidden">Nueva</span>
+          <span className="sm:hidden text-xs">Nueva</span>
         </motion.button>
       </header>
 
-      <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 pt-5 pb-4 gap-4">
-        <h2 className="text-foreground font-semibold text-base shrink-0">
+      {/* Main content */}
+      <div className="flex flex-col flex-1 overflow-hidden px-2 sm:px-4 md:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 gap-2 sm:gap-4">
+        <h2 className="text-foreground font-semibold text-sm sm:text-base shrink-0 truncate">
           {teamName || "Área del Equipo"}
         </h2>
 
         {loading ? (
           <div className="flex items-center justify-center flex-1">
-            <span className="text-muted-foreground">Cargando tareas...</span>
+            <span className="text-foreground text-sm">Cargando tareas...</span>
           </div>
         ) : (
           <DndContext
@@ -876,7 +908,7 @@ export function KanbanView() {
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
           >
-            <div className="flex gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2">
+            <div className="flex gap-2 sm:gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2">
               {COLUMNS.map((col) => (
                 <KanbanColumnPanel
                   key={col.id}
@@ -892,7 +924,7 @@ export function KanbanView() {
 
             <DragOverlay>
               {activeTask ? (
-                <div className="rotate-1 shadow-2xl opacity-90 w-[220px]">
+                <div className="rotate-1 shadow-2xl opacity-90 w-[150px] sm:w-[220px]">
                   <TaskCardContent
                     task={activeTask}
                     members={members}
@@ -906,6 +938,7 @@ export function KanbanView() {
         )}
       </div>
 
+      {/* Modals */}
       <AnimatePresence>
         {showCreate && (
           <CreateTaskSidebar

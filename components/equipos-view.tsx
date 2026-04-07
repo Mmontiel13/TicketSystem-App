@@ -5,28 +5,35 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Users,
   ShoppingCart,
-  Code2,
-  TrendingUp,
-  Eye,
-  EyeOff,
   Plus,
-  UserCircle,
   Pencil,
-  Server,
-  Wifi,
-  Monitor,
-  Cpu,
-  Database,
-  HardDrive,
-  Globe,
-  Shield,
-  Printer,
-  Settings,
   Ghost,
   Rose,
   Rabbit,
   Fish,
   Cat,
+  Car,
+  BookUser,
+  BadgeDollarSign,
+  Computer,
+  EthernetPort,
+  Siren,
+  Scale,
+  ConciergeBell,
+  Calculator,
+  Trophy,
+  PackageOpen,
+  Clapperboard,
+  SolarPanel,
+  VenetianMask,
+  Volleyball,
+  Donut,
+  Skull,
+  HandMetal,
+  Sticker,
+  Biohazard,
+  X,
+  ChevronLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -36,29 +43,35 @@ import { useUser } from "@/lib/user-context";
 /* ─── Icon picker config ────────────────────────────────────────────────────── */
 
 const TEAM_ICONS = [
-  { id: "TrendingUp", icon: TrendingUp },
-  { id: "Code2", icon: Code2 },
+  { id: "BadgeDollarSign", icon: BadgeDollarSign },
+  { id: "Computer", icon: Computer },
   { id: "ShoppingCart", icon: ShoppingCart },
-  { id: "Users", icon: Users },
-  { id: "Server", icon: Server },
-  { id: "Wifi", icon: Wifi },
-  { id: "Monitor", icon: Monitor },
-  { id: "Cpu", icon: Cpu },
-  { id: "Database", icon: Database },
-  { id: "HardDrive", icon: HardDrive },
-  { id: "Globe", icon: Globe },
-  { id: "Shield", icon: Shield },
-  { id: "Printer", icon: Printer },
-  { id: "Settings", icon: Settings },
+  { id: "BookUser", icon: BookUser },
+  { id: "Clapperboard", icon: Clapperboard },
+  { id: "Car", icon: Car },
+  { id: "EthernetPort", icon: EthernetPort },
+  { id: "Siren", icon: Siren },
+  { id: "Scale", icon: Scale },
+  { id: "ConciergeBell", icon: ConciergeBell },
+  { id: "Calculator", icon: Calculator },
+  { id: "Trophy", icon: Trophy },
+  { id: "PackageOpen", icon: PackageOpen },
+  { id: "SolarPanel", icon: SolarPanel },
 ] as const;
 
 const USER_ICONS = [
   { id: "Ghost", icon: Ghost },
   { id: "Rose", icon: Rose },
   { id: "Rabbit", icon: Rabbit },
-  { id: "Users", icon: Users },
+  { id: "Skull", icon: Skull },
   { id: "Fish", icon: Fish },
   { id: "Cat", icon: Cat },
+  { id: "VenetianMask", icon: VenetianMask },
+  { id: "Volleyball", icon: Volleyball },
+  { id: "Donut", icon: Donut },
+  { id: "Hand-metal", icon: HandMetal },
+  { id: "Sticker", icon: Sticker },
+  { id: "Biohazard", icon: Biohazard },
 ] as const;
 
 type IconId = (typeof TEAM_ICONS)[number]["id"];
@@ -100,133 +113,6 @@ interface Team {
   members: TeamMember[];
 }
 
-/* ─── Mock data ─────────────────────────────────────────────────────────────── */
-
-const INITIAL_TEAMS: Team[] = [
-  {
-    id: 1,
-    name: "Equipo de Ventas",
-    area: "Ventas",
-    iconId: "TrendingUp",
-    members: [
-      {
-        id: 1,
-        name: "Andrea López",
-        email: "andrea.ventas@asiatech.com",
-        iconId: "Ghost",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Carlos Martín",
-        email: "carlos.ventas@asiatech.com",
-        iconId: "Fish",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Equipo de Programación",
-    area: "Programación",
-    iconId: "Code2",
-    members: [
-      {
-        id: 1,
-        name: "Lucía Torres",
-        email: "lucia.programacion@asiatech.com",
-        iconId: "Rose",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Javier Pérez",
-        email: "javier.programacion@asiatech.com",
-        iconId: "Users",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 3,
-        name: "María Gómez",
-        email: "maria.programacion@asiatech.com",
-        iconId: "Cat",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Equipo de Compras",
-    area: "Compras",
-    iconId: "ShoppingCart",
-    members: [
-      {
-        id: 1,
-        name: "Fernanda Silva",
-        email: "fernanda.compras@asiatech.com",
-        iconId: "Fish",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Diego Ramírez",
-        email: "diego.compras@asiatech.com",
-        iconId: "Rabbit",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-  {
-    id: 4,
-    name: "Equipo de Infraestructura",
-    area: "Infra",
-    iconId: "Server",
-    members: [
-      {
-        id: 1,
-        name: "Pedro Soto",
-        email: "pedro.infra@asiatech.com",
-        iconId: "Ghost",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 2,
-        name: "Alicia Bravo",
-        email: "alicia.infra@asiatech.com",
-        iconId: "Rose",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-      {
-        id: 3,
-        name: "Luis Navarro",
-        email: "luis.infra@asiatech.com",
-        iconId: "Cat",
-        role: "user",
-        isActive: true,
-        deletedAt: null,
-      },
-    ],
-  },
-];
-
 /* ─── Shared UI class helpers ──────────────────────────────────────────────── */
 
 const inputClass =
@@ -238,8 +124,8 @@ const primaryButtonClass =
   "hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
 const modalSurfaceClass =
-  "fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border p-6 shadow-2xl " +
-  "bg-popover/90 backdrop-blur-xl text-popover-foreground";
+  "fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border p-4 md:p-6 shadow-2xl " +
+  "bg-popover/90 backdrop-blur-xl text-popover-foreground max-h-[90vh] overflow-y-auto";
 
 /* ─── Icon Grid Picker ──────────────────────────────────────────────────────── */
 
@@ -251,7 +137,7 @@ function IconPicker({
   onSelect: (id: IconId) => void;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-1.5">
+    <div className="grid grid-cols-5 sm:grid-cols-7 gap-1.5">
       {TEAM_ICONS.map(({ id, icon: Icon }) => (
         <motion.button
           key={id}
@@ -260,7 +146,7 @@ function IconPicker({
           whileTap={{ scale: 0.93 }}
           onClick={() => onSelect(id)}
           className={cn(
-            "w-9 h-9 rounded-md flex items-center justify-center border transition-colors",
+            "w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center border transition-colors",
             selected === id
               ? "bg-primary text-primary-foreground border-border"
               : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent"
@@ -268,7 +154,7 @@ function IconPicker({
           aria-label={id}
           aria-pressed={selected === id}
         >
-          <Icon size={16} className={selected === id ? "text-primary-foreground" : ""} />
+          <Icon size={14} className={selected === id ? "text-primary-foreground" : ""} />
         </motion.button>
       ))}
     </div>
@@ -287,7 +173,7 @@ function TeamModal({
   onSave: () => Promise<void>;
 }) {
   const [teamName, setTeamName] = useState(initial?.area ?? "");
-  const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "Users");
+  const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "BadgeDollarSign");
   const [isSaving, setIsSaving] = useState(false);
   const supabase = createClient();
   const isEdit = !!initial;
@@ -342,11 +228,19 @@ function TeamModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.18 }}
-        className={cn(modalSurfaceClass, "w-[360px]")}
+        className={cn(modalSurfaceClass, "w-[90vw] sm:w-[360px]")}
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? "Editar equipo" : "Agregar equipo nuevo"}
       >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          aria-label="Cerrar"
+        >
+          <X size={20} />
+        </button>
+
         <h2 className="text-foreground font-semibold text-base mb-1">
           {isEdit ? "Editando equipo" : "Agregando un equipo nuevo"}
         </h2>
@@ -396,35 +290,18 @@ function TeamModal({
   );
 }
 
-/* ─── Add Member Modal ─────────────────────────────────────────────────────── */
-
-function sendWelcomeEmail(userEmail: string, generatedPassword: string) {
-  console.info("Enviando correo de bienvenida:", {
-    to: userEmail,
-    password: generatedPassword,
-  });
-  // Stub - integration point
-}
-
-function generateRandomPassword(length = 10) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
-  let pass = "";
-  for (let i = 0; i < length; i++) {
-    pass += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return pass;
-}
+/* ─── User Icon Picker ──────────────────────────────────────────────────────── */
 
 function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect: (id: IconUserId) => void }) {
   return (
-    <div className="grid grid-cols-6 gap-1.5">
+    <div className="grid grid-cols-6 sm:grid-cols-6 gap-1.5">
       {USER_ICONS.map(({ id, icon: Icon }) => (
         <button
           key={id}
           type="button"
           onClick={() => onSelect(id)}
           className={cn(
-            "w-9 h-9 rounded-md flex items-center justify-center border transition-colors",
+            "w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center border transition-colors",
             selected === id
               ? "bg-primary text-primary-foreground border-border"
               : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent"
@@ -432,11 +309,20 @@ function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect
           aria-label={id}
           aria-pressed={selected === id}
         >
-          <Icon size={16} className={selected === id ? "text-primary-foreground" : ""} />
+          <Icon size={14} className={selected === id ? "text-primary-foreground" : ""} />
         </button>
       ))}
     </div>
   );
+}
+
+/* ─── Add Member Modal ──────────────────────────────────────────────────────── */
+
+function sendWelcomeEmail(userEmail: string, generatedPassword: string) {
+  console.info("Enviando correo de bienvenida:", {
+    to: userEmail,
+    password: generatedPassword,
+  });
 }
 
 function AddMemberModal({
@@ -456,7 +342,7 @@ function AddMemberModal({
   const isEditMode = !!initialUser;
   const [memberName, setMemberName] = useState(initialUser?.full_name ?? "");
   const [memberEmail, setMemberEmail] = useState(initialUser?.email ?? "");
-  const [selectedIcon, setSelectedIcon] = useState<IconUserId>(initialUser?.avatar_icon ?? "Users");
+  const [selectedIcon, setSelectedIcon] = useState<IconUserId>(initialUser?.avatar_icon ?? "Ghost");
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
@@ -496,10 +382,8 @@ function AddMemberModal({
 
     const trimmedEmail = memberEmail.trim().toLowerCase();
 
-    // Frontend validation: check if email already exists
     const emailExists = members.some((m) => {
       const existingEmail = m.email.toLowerCase();
-      // For edit mode, ignore the current user's email
       if (isEditMode && initialUser && m.id === initialUser.id) {
         return false;
       }
@@ -574,7 +458,6 @@ function AddMemberModal({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/40"
         onClick={onClose}
@@ -586,11 +469,19 @@ function AddMemberModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.18 }}
-        className={cn(modalSurfaceClass, "w-[360px]")}
+        className={cn(modalSurfaceClass, "w-[90vw] sm:w-[360px]")}
         role="dialog"
         aria-modal="true"
         aria-label={isEditMode ? "Editar integrante" : "Agregar integrante"}
       >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          aria-label="Cerrar"
+        >
+          <X size={20} />
+        </button>
+
         <h2 className="text-foreground font-semibold text-base mb-1">
           {isEditMode ? "Editando integrante" : "Agregando un integrante"}
         </h2>
@@ -640,13 +531,13 @@ function AddMemberModal({
         )}
 
         {isSuccess && createdPassword && (
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex flex-col sm:flex-row items-center gap-2">
             <span className="text-xs text-muted-foreground">Contraseña temporal:</span>
-            <code className="rounded bg-muted px-2 py-1 text-xs">{createdPassword}</code>
+            <code className="rounded bg-muted px-2 py-1 text-xs break-all">{createdPassword}</code>
             <button
               type="button"
               onClick={() => navigator.clipboard.writeText(createdPassword)}
-              className="text-xs text-primary hover:underline"
+              className="text-xs text-primary hover:underline whitespace-nowrap"
             >
               Copiar
             </button>
@@ -705,22 +596,23 @@ function TeamCard({
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className={cn(
-        "w-full flex items-center justify-between px-5 py-4 rounded-lg border text-left transition-colors",
+        "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 rounded-lg border text-left transition-colors gap-2",
         "border-border bg-card hover:bg-accent/60",
         active && "bg-accent"
       )}
       type="button"
     >
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-md bg-muted border border-border flex items-center justify-center shrink-0">
-          <Icon size={20} className="text-foreground" />
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md bg-muted border border-border flex items-center justify-center shrink-0">
+          <Icon size={16} className="text-foreground sm:hidden" />
+          <Icon size={20} className="text-foreground hidden sm:block" />
         </div>
-        <span className="text-foreground text-sm font-medium">{team.name}</span>
+        <span className="text-foreground text-xs sm:text-sm font-medium truncate">{team.name}</span>
       </div>
 
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <Users size={14} />
-        <span>Integrantes:</span>
+      <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-xs sm:text-sm whitespace-nowrap">
+        <Users size={12} className="sm:block hidden" />
+        <span className="hidden sm:inline">Integrantes:</span>
         <span className="text-foreground font-semibold">{team.members.filter((m) => m.isActive).length}</span>
       </div>
     </motion.button>
@@ -738,6 +630,7 @@ function TeamDetailPane({
   onEditMember,
   deletingMemberId,
   isSavingMember,
+  onClose,
 }: {
   team: Team;
   isAdmin: boolean;
@@ -747,15 +640,28 @@ function TeamDetailPane({
   onEditMember: (member: EditingUser) => void;
   deletingMemberId?: number | null;
   isSavingMember?: boolean;
+  onClose?: () => void;
 }) {
   const Icon = iconById(team.iconId);
 
   return (
-    <div className="h-full rounded-lg border border-border p-5 flex flex-col bg-card min-h-0">
-      <div className="flex flex-col items-center mb-6">
+    <div className="h-full rounded-lg border border-border p-3 sm:p-5 flex flex-col bg-card min-h-0">
+      {/* Mobile close button */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          aria-label="Cerrar panel"
+        >
+          <X size={20} />
+        </button>
+      )}
+
+      <div className="flex flex-col items-center mb-4 sm:mb-6">
         <p className="text-muted-foreground text-xs mb-2 self-start">Equipo:</p>
-        <div className="w-20 h-20 rounded-xl border border-border bg-muted flex items-center justify-center mb-2">
-          <Icon size={36} className="text-foreground" />
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-border bg-muted flex items-center justify-center mb-2">
+          <Icon size={28} className="text-foreground sm:hidden" />
+          <Icon size={36} className="text-foreground hidden sm:block" />
         </div>
 
         {isAdmin && (
@@ -776,7 +682,7 @@ function TeamDetailPane({
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <p className="text-muted-foreground text-xs font-medium mb-3">Integrantes:</p>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:gap-4">
           {team.members
             .filter((m) => m.isActive)
             .map((m) => {
@@ -784,18 +690,19 @@ function TeamDetailPane({
               return (
                 <div
                   key={m.id}
-                  className="rounded-xl border border-border bg-white/10 backdrop-blur-sm p-3 min-w-0"
+                  className="rounded-lg sm:rounded-xl border border-border bg-white/10 backdrop-blur-sm p-2 sm:p-3 min-w-0"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
-                      <IconUser size={18} className="text-foreground" />
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                      <IconUser size={12} className="text-foreground sm:hidden" />
+                      <IconUser size={18} className="text-foreground hidden sm:block" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-foreground text-sm font-semibold truncate">{m.full_name ?? m.name}</p>
-                      <p className="text-muted-foreground text-xs truncate max-w-[240px]">{m.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-foreground text-xs sm:text-sm font-semibold truncate">{m.full_name ?? m.name}</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-xs truncate">{m.email}</p>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-1 sm:gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -806,7 +713,7 @@ function TeamDetailPane({
                           avatar_icon: m.iconId,
                         });
                       }}
-                      className="rounded-md border border-border bg-transparent px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                      className="rounded-md border border-border bg-transparent px-2 py-1 text-[10px] sm:text-xs font-medium text-foreground hover:bg-muted flex-1 sm:flex-none"
                     >
                       Editar
                     </button>
@@ -815,7 +722,7 @@ function TeamDetailPane({
                       onClick={() => onMemberRemove(team.id, m.id)}
                       disabled={deletingMemberId === m.id}
                       className={cn(
-                        "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100",
+                        "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] sm:text-xs font-medium text-red-600 hover:bg-red-100 flex-1 sm:flex-none",
                         deletingMemberId === m.id ? "opacity-50 cursor-not-allowed" : ""
                       )}
                     >
@@ -833,8 +740,8 @@ function TeamDetailPane({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => onEditMember({ id: 0, full_name: "", email: "", avatar_icon: "Users" })}
-            className={cn(primaryButtonClass, "w-full")}
+            onClick={() => onEditMember({ id: 0, full_name: "", email: "", avatar_icon: "Ghost" })}
+            className={cn(primaryButtonClass, "w-full text-xs sm:text-sm")}
             type="button"
             disabled={isSavingMember}
           >
@@ -864,6 +771,7 @@ export function EquiposView() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editingMember, setEditingMember] = useState<EditingUser | null>(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showDetailPane, setShowDetailPane] = useState(false);
 
   const refreshTeams = async () => {
     setIsLoadingTeams(true);
@@ -896,7 +804,7 @@ export function EquiposView() {
             name: user.full_name,
             full_name: user.full_name,
             email: user.email,
-            iconId: (user.avatar_icon as IconUserId) || "Users",
+            iconId: (user.avatar_icon as IconUserId) || "Ghost",
             role: (user.role as "user" | "admin") || "user",
             isActive: true,
             deletedAt: null,
@@ -909,7 +817,7 @@ export function EquiposView() {
           id: team.id,
           name: team.name ?? "",
           area: team.name ?? "",
-          iconId: (team.icon_id as IconId) || "Users",
+          iconId: (team.icon_id as IconId) || "BadgeDollarSign",
           members: membersByTeam.get(team.id) ?? [],
         }));
 
@@ -931,10 +839,10 @@ export function EquiposView() {
 
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-xl font-semibold text-foreground">Acceso denegado</h2>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-center h-screen px-4">
+        <div className="rounded-lg border border-border bg-card p-6 sm:p-8 text-center">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Acceso denegado</h2>
+          <p className="text-muted-foreground text-sm mt-2">
             No tienes permisos suficientes para ver la sección de Equipos.
           </p>
         </div>
@@ -949,7 +857,7 @@ export function EquiposView() {
       id: 0,
       name: "Sin equipo",
       area: "",
-      iconId: "Users" as IconId,
+      iconId: "BadgeDollarSign" as IconId,
       members: [],
     } as Team);
 
@@ -975,14 +883,12 @@ export function EquiposView() {
 
       if (error) {
         console.error("Error al actualizar miembro", error);
-        // Handle unique constraint violation on email
         if (error.code === "23505") {
           return { success: false, message: "Este correo ya está registrado en otro usuario." };
         }
         return { success: false, message: "Error al actualizar miembro. Revisa la consola." };
       }
 
-      // Refresh to get updated data
       await refreshTeams();
 
       return { success: true, message: "Miembro actualizado correctamente." };
@@ -1008,35 +914,35 @@ export function EquiposView() {
           avatar_icon: memberIcon,
           team_id: teamId,
         }),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (!response.ok || !result.success) {
         const message = result.error || "Error al agregar miembro";
-        setStatusMessage(message)
-        return { success: false, message }
+        setStatusMessage(message);
+        return { success: false, message };
       }
 
-      await refreshTeams()
+      await refreshTeams();
 
-      const successMessage = `Miembro agregado. Contraseña temporal: ${result.password}`
-      setStatusMessage(successMessage)
-      sendWelcomeEmail(memberEmail, result.password)
+      const successMessage = `Miembro agregado. Contraseña temporal: ${result.password}`;
+      setStatusMessage(successMessage);
+      sendWelcomeEmail(memberEmail, result.password);
 
-      return { success: true, password: result.password, message: successMessage }
+      return { success: true, password: result.password, message: successMessage };
     } catch (error) {
-      console.error("Error al agregar miembro:", error)
-      const message = "Error al agregar miembro"
-      setStatusMessage(message)
-      return { success: false, message }
+      console.error("Error al agregar miembro:", error);
+      const message = "Error al agregar miembro";
+      setStatusMessage(message);
+      return { success: false, message };
     } finally {
-      setIsSavingMember(false)
+      setIsSavingMember(false);
     }
   }
 
   async function handleMemberRemove(teamId: number, memberId: string | number) {
-    setDeletingMemberId(typeof memberId === 'number' ? memberId : Number(memberId));
+    setDeletingMemberId(typeof memberId === "number" ? memberId : Number(memberId));
     setStatusMessage(null);
 
     try {
@@ -1074,66 +980,106 @@ export function EquiposView() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-4 md:px-8 py-4 border-b border-border shrink-0">
-        <h1 className="text-foreground font-semibold text-lg">Equipos</h1>
+      <header className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+        <h1 className="text-foreground font-semibold text-base sm:text-lg">Equipos</h1>
         {isAdmin && (
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowAddTeam(true)}
-            className={primaryButtonClass}
+            className={cn(primaryButtonClass, "text-xs sm:text-sm px-3 sm:px-4")}
             type="button"
           >
             <Plus size={14} />
-            Crear nuevo
+            <span className="hidden sm:inline">Crear nuevo</span>
+            <span className="sm:hidden">Nuevo</span>
           </motion.button>
         )}
       </header>
 
       {statusMessage && (
-        <div className="px-4 md:px-8 py-2 text-sm text-green-700 bg-green-100 border border-green-200">
+        <div className="px-3 sm:px-4 md:px-8 py-2 text-xs sm:text-sm text-green-700 bg-green-100 border border-green-200">
           {statusMessage}
         </div>
       )}
-      {isLoadingTeams ? (
-        <div className="flex flex-1 items-center justify-center text-muted-foreground">Cargando equipos...</div>
-      ) : (
-        <div className="flex flex-1 gap-4 p-4 md:p-6 overflow-hidden">
-          {/* Left: team list */}
-        <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
-          {teams.map((team) => (
-            <TeamCard
-              key={team.id}
-              team={team}
-              active={team.id === activeTeamId}
-              onClick={() => setActiveTeamId(team.id)}
-            />
-          ))}
-        </div>
 
-        {/* Right: detail pane */}
-        <div className="w-[200px] shrink-0 hidden sm:block">
-          <TeamDetailPane
-            team={activeTeam}
-            isAdmin={isAdmin}
-            onEdit={() => setEditingTeam(activeTeam)}
-            onMemberAdded={handleMemberAdded}
-            onMemberRemove={handleMemberRemove}
-            onEditMember={(member) => {
-              if (member.id === 0) {
-                // Create mode
-                setEditingMember(null);
-              } else {
-                // Edit mode
-                setEditingMember(member);
-              }
-              setShowMemberModal(true);
-            }}
-            deletingMemberId={deletingMemberId}
-            isSavingMember={isSavingMember}
-          />
+      {isLoadingTeams ? (
+        <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+          Cargando equipos...
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-1 gap-2 sm:gap-4 p-2 sm:p-4 md:p-6 overflow-hidden">
+          {/* Left: team list */}
+          <div className="flex-1 flex flex-col gap-2 sm:gap-3 overflow-y-auto pr-1">
+            {teams.map((team) => (
+              <TeamCard
+                key={team.id}
+                team={team}
+                active={team.id === activeTeamId}
+                onClick={() => {
+                  setActiveTeamId(team.id);
+                  setShowDetailPane(true);
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Right: detail pane - Desktop only */}
+          <div className="w-48 sm:w-64 lg:w-80 shrink-0 hidden lg:block">
+            <TeamDetailPane
+              team={activeTeam}
+              isAdmin={isAdmin}
+              onEdit={() => setEditingTeam(activeTeam)}
+              onMemberAdded={handleMemberAdded}
+              onMemberRemove={handleMemberRemove}
+              onEditMember={(member) => {
+                if (member.id === 0) {
+                  setEditingMember(null);
+                } else {
+                  setEditingMember(member);
+                }
+                setShowMemberModal(true);
+              }}
+              deletingMemberId={deletingMemberId}
+              isSavingMember={isSavingMember}
+            />
+          </div>
+
+          {/* Mobile detail pane drawer */}
+          <AnimatePresence>
+            {showDetailPane && (
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                className="fixed inset-0 z-40 lg:hidden bg-black/40 flex flex-col"
+              >
+                <div className="flex-1 overflow-auto bg-background">
+                  <div className="p-4 relative">
+                    <TeamDetailPane
+                      team={activeTeam}
+                      isAdmin={isAdmin}
+                      onEdit={() => setEditingTeam(activeTeam)}
+                      onMemberAdded={handleMemberAdded}
+                      onMemberRemove={handleMemberRemove}
+                      onEditMember={(member) => {
+                        if (member.id === 0) {
+                          setEditingMember(null);
+                        } else {
+                          setEditingMember(member);
+                        }
+                        setShowMemberModal(true);
+                      }}
+                      deletingMemberId={deletingMemberId}
+                      isSavingMember={isSavingMember}
+                      onClose={() => setShowDetailPane(false)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       <AnimatePresence>
