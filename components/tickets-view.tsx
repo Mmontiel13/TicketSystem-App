@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -127,9 +127,8 @@ function StatusDropdown({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors min-w-[120px]",
-          "border-zinc-300 bg-white text-zinc-900",
-          "dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-foreground",
-          "hover:border-zinc-500 dark:hover:border-zinc-400",
+          "border-input bg-background text-foreground",
+          "hover:border-ring",
           disabled && "opacity-60 cursor-not-allowed"
         )}
       >
@@ -228,12 +227,12 @@ function SortableRow({
       animate={{ opacity: isDragging ? 0.4 : 1 }}
       className={cn(
         "border-b border-border/60 transition-colors",
-        selected ? "bg-zinc-1000/40" : "hover:bg-accent/50",
+        selected ? "bg-accent/40" : "hover:bg-accent/50",
       )}
       {...attributes}
     >
       <td className="px-3 py-3 cursor-grab" {...listeners}>
-        <GripVertical size={14} className="text-zinc-600" />
+        <GripVertical size={14} className="text-muted-foreground" />
       </td>
 
       <td className="px-2 py-3">
@@ -259,7 +258,7 @@ function SortableRow({
             {description}
           </span>
           {truncated && (
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-muted-foreground">
               {isExpanded ? "Mostrar menos" : "Mostrar más"}
             </span>
           )}
@@ -303,7 +302,7 @@ function SortableRow({
 
       <td className="px-3 py-3 min-w-[100px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
-          <Users size={12} className="text-zinc-500" />
+          <Users size={12} className="text-muted-foreground" />
           {ticket.area}
         </span>
       </td>
@@ -312,7 +311,7 @@ function SortableRow({
         <span className="flex items-center gap-1.5 text-xs text-foreground">
           {(() => {
             const UserIcon = ICON_MAP[ticket.user_avatar_icon] || UserCircle;
-            return <UserIcon size={14} className="text-zinc-500" />;
+            return <UserIcon size={14} className="text-muted-foreground" />;
           })()}
           {ticket.usuario}
         </span>
@@ -375,11 +374,11 @@ function MobileTicketCard({
           className="text-left flex-1"
           aria-label={`Expandir descripción ${ticket.id}`}
         >
-          <p className="text-zinc-200 text-sm leading-relaxed">
+          <p className="text-foreground text-sm leading-relaxed">
             {description}
           </p>
           {truncated && (
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-muted-foreground">
               {isExpanded ? "Mostrar menos" : "Mostrar más"}
             </span>
           )}
@@ -403,7 +402,7 @@ function MobileTicketCard({
           <StatusBadge status={ticket.status} />
         )}
 
-        <span className="text-zinc-500 text-xs tabular-nums">
+        <span className="text-muted-foreground text-xs tabular-nums">
           <ClientTime iso={ticket.arrival_time} />
         </span>
       </div>
@@ -444,7 +443,7 @@ export function TicketsView() {
   const { user } = useUser();
   const { toast } = useToast();
   const isAdmin = user.role === "admin";
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [tab, setTab] = useState<Tab>("Todos");
   const [sortKey, setSortKey] = useState<SortKey>("default");
@@ -803,7 +802,7 @@ export function TicketsView() {
               }}
               className={cn(
                 "px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors",
-                tab === t ? "bg-zinc-700 text-white dark:bg-zinc-700 dark:text-white" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
               {t}
@@ -814,7 +813,7 @@ export function TicketsView() {
         <div className="relative">
           <button
             onClick={() => setSortOpen((o) => !o)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-700 bg-card/80 text-foreground text-sm hover:border-zinc-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card/80 text-foreground text-sm hover:border-ring transition-colors"
           >
             <ChevronDown size={13} />
             <span className="hidden sm:inline">Ordenar: {SORT_LABELS[sortKey]}</span>
@@ -936,7 +935,7 @@ export function TicketsView() {
                       <tr>
                         <td
                           colSpan={10}
-                          className="px-4 py-10 text-center text-zinc-500 text-sm"
+                          className="px-4 py-10 text-center text-muted-foreground text-sm"
                         >
                           No hay tickets en esta categoría.
                         </td>
@@ -969,7 +968,7 @@ export function TicketsView() {
               </table>
             </DndContext>
           ) : (
-            <div className="p-6 text-sm text-zinc-500">Cargando…</div>
+            <div className="p-6 text-sm text-muted-foreground">Cargando…</div>
           )}
         </div>
       </div>
@@ -979,7 +978,7 @@ export function TicketsView() {
         <div className="flex flex-col gap-3 py-2">
           <AnimatePresence mode="popLayout">
             {pageData.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-8">
+              <p className="text-muted-foreground text-sm text-center py-8">
                 No hay tickets en esta categoría.
               </p>
             ) : (
@@ -1012,20 +1011,20 @@ export function TicketsView() {
         <button
           onClick={() => setPage((p) => Math.max(0, p - 1))}
           disabled={page === 0}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 text-foreground hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Página anterior"
         >
           <ChevronDown size={14} className="rotate-90" />
         </button>
 
-        <span className="text-xs text-zinc-500 tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {page + 1} / {Math.max(1, totalPages)}
         </span>
 
         <button
           onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
           disabled={page >= totalPages - 1}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 text-foreground hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Página siguiente"
         >
           <ChevronDown size={14} className="-rotate-90" />

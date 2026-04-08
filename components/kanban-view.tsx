@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +43,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ResponsiveIcon } from "@/components/responsive-icon";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -138,8 +139,7 @@ function TaskCardContent({
       )}
     >
       <div className="flex items-center justify-between gap-1">
-        <GripVertical size={12} className="text-muted-foreground cursor-grab sm:hidden" />
-        <GripVertical size={14} className="text-muted-foreground cursor-grab hidden sm:block" />
+        <ResponsiveIcon icon={GripVertical} smSize={12} mdSize={14} className="text-muted-foreground cursor-grab" />
         
         <div className="relative">
           <button
@@ -151,8 +151,7 @@ function TaskCardContent({
             }}
             type="button"
           >
-            <MoreHorizontal size={12} className="sm:hidden" />
-            <MoreHorizontal size={14} className="hidden sm:block" />
+            <ResponsiveIcon icon={MoreHorizontal} smSize={12} mdSize={14} />
           </button>
           {showMenu && (
             <motion.div
@@ -216,8 +215,7 @@ function TaskCardContent({
                   title={m.full_name}
                   className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-muted border border-border flex items-center justify-center shrink-0"
                 >
-                  <Icon size={10} className="text-foreground/70 sm:hidden" />
-                  <Icon size={14} className="text-foreground/70 hidden sm:block" />
+                  <ResponsiveIcon icon={Icon} smSize={10} mdSize={14} className="text-foreground/70" />
                 </div>
               );
             })}
@@ -317,8 +315,7 @@ function KanbanColumnPanel({
       {/* Column header */}
       <div className="flex items-center justify-between px-0.5 sm:px-1">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-          <Icon size={12} className={cn(config.iconClass, "sm:hidden")} />
-          <Icon size={15} className={cn(config.iconClass, "hidden sm:block")} />
+          <ResponsiveIcon icon={Icon} smSize={12} mdSize={15} className={config.iconClass} />
           <span className="text-foreground text-xs sm:text-sm font-medium truncate">{config.id}</span>
           <span className="text-foreground text-[10px] sm:text-xs tabular-nums ml-1 bg-muted px-1.5 rounded">
             {tasks.length}
@@ -553,8 +550,7 @@ function CreateTaskSidebar({
                 return (
                   <label key={m.id} className="flex items-center justify-between cursor-pointer p-1.5 rounded hover:bg-accent/30 transition-colors">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Icon size={14} className="text-foreground shrink-0 sm:hidden" />
-                      <Icon size={18} className="text-foreground shrink-0 hidden sm:block" />
+                      <ResponsiveIcon icon={Icon} smSize={14} mdSize={18} className="text-foreground shrink-0" />
                       <span className="text-foreground text-xs truncate">{m.full_name}</span>
                     </div>
                     <input
@@ -577,8 +573,7 @@ function CreateTaskSidebar({
           className={cn(headerButtonClass, "mt-auto justify-center w-full")}
           type="button"
         >
-          <Plus size={14} className="sm:hidden" />
-          <Plus size={16} className="hidden sm:block" />
+          <ResponsiveIcon icon={Plus} smSize={14} mdSize={16} />
           {task ? "Guardar" : "Agregar"}
         </motion.button>
       </motion.div>
@@ -590,7 +585,7 @@ function CreateTaskSidebar({
 
 export function KanbanView() {
   const { user } = useUser();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { toast } = useToast();
 
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
@@ -892,8 +887,7 @@ export function KanbanView() {
           className={headerButtonClass}
           type="button"
         >
-          <Plus size={12} className="sm:hidden" />
-          <Plus size={14} className="hidden sm:block" />
+          <ResponsiveIcon icon={Plus} smSize={12} mdSize={14} />
           <span className="hidden sm:inline">Crear tarea</span>
           <span className="sm:hidden text-xs">Nueva</span>
         </motion.button>
