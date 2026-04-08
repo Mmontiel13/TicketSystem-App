@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import {
   AreaChart,
@@ -16,15 +16,15 @@ import {
   Ticket,
   Users,
   Clock,
-  Menu,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/user-context";
+import { ResponsiveIcon } from "@/components/responsive-icon";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Fetch data from database ────────────────────────────────────────────────────
-async function fetchTicketsMetrics(supabase: any, teamId: number) {
+async function fetchTicketsMetrics(supabase: SupabaseClient, teamId: number) {
   try {
     const { data, error } = await supabase
       .from("tickets")
@@ -37,9 +37,8 @@ async function fetchTicketsMetrics(supabase: any, teamId: number) {
     }
 
     const total = data?.length || 0;
-    const pending = data?.filter((t: any) => t.status === "Pendiente").length || 0;
+    const pending = data?.filter((t: { id: number; status: string }) => t.status === "Pendiente").length || 0;
 
-    console.log(`📊 Tickets - Total: ${total}, Pending: ${pending}`);
     return { total, pending };
   } catch (err) {
     console.error("Exception fetching tickets:", err);
@@ -47,7 +46,7 @@ async function fetchTicketsMetrics(supabase: any, teamId: number) {
   }
 }
 
-async function fetchUsersMetrics(supabase: any, teamId: number) {
+async function fetchUsersMetrics(supabase: SupabaseClient, teamId: number) {
   try {
     const { data, error } = await supabase
       .from("users")
@@ -59,8 +58,7 @@ async function fetchUsersMetrics(supabase: any, teamId: number) {
       return 0;
     }
 
-    const count = data?.filter((u: any) => u.is_active === true).length || 0;
-    console.log(`👥 Users - Total active: ${count}`);
+    const count = data?.filter((u: { id: number; is_active: boolean }) => u.is_active === true).length || 0;
     return count;
   } catch (err) {
     console.error("Exception fetching users:", err);
@@ -68,11 +66,11 @@ async function fetchUsersMetrics(supabase: any, teamId: number) {
   }
 }
 
-// ─── Generate chart data from database ───────────────────────��─────────────────
+// ─── Generate chart data from database ───────────────────────────────────────
 async function generateChartDataFromDB(
-  supabase: any, 
-  teamId: number, 
-  days: number, 
+  supabase: SupabaseClient,
+  teamId: number,
+  days: number,
   dataTab: "Tickets" | "Usuarios"
 ) {
   const data: { label: string; value: number }[] = [];
@@ -96,15 +94,15 @@ async function generateChartDataFromDB(
       if (error) {
         console.error("Error fetching tickets for chart:", error.message);
         return dateArray.map((date, index) => ({
-          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1 
-            ? `${date.toLocaleDateString("es-MX")}` 
+          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
+            ? `${date.toLocaleDateString("es-MX")}`
             : "",
           value: 0,
         }));
       }
 
       dateArray.forEach((date, index) => {
-        const count = tickets?.filter((t: any) => {
+        const count = tickets?.filter((t: { id: number; status: string; arrival_time?: string }) => {
           if (!t.arrival_time) return false;
           const ticketDate = new Date(t.arrival_time);
           ticketDate.setHours(0, 0, 0, 0);
@@ -121,8 +119,6 @@ async function generateChartDataFromDB(
           value: count,
         });
       });
-
-      console.log(`📈 Chart data (Tickets):`, data.slice(0, 3), "...");
     } else {
       const { data: users, error } = await supabase
         .from("users")
@@ -132,15 +128,15 @@ async function generateChartDataFromDB(
       if (error) {
         console.error("Error fetching users for chart:", error.message);
         return dateArray.map((date, index) => ({
-          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1 
-            ? `${date.toLocaleDateString("es-MX")}` 
+          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
+            ? `${date.toLocaleDateString("es-MX")}`
             : "",
           value: 0,
         }));
       }
 
       dateArray.forEach((date, index) => {
-        const count = users?.filter((u: any) => {
+        const count = users?.filter((u: { id: number; is_active: boolean; created_at?: string }) => {
           if (!u.created_at) return false;
           const userDate = new Date(u.created_at);
           userDate.setHours(0, 0, 0, 0);
@@ -157,8 +153,6 @@ async function generateChartDataFromDB(
           value: count,
         });
       });
-
-      console.log(`📈 Chart data (Users):`, data.slice(0, 3), "...");
     }
   } catch (err) {
     console.error("Exception in generateChartDataFromDB:", err);
@@ -194,8 +188,7 @@ function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardPro
             isUp ? "dark:text-emerald-400" : "dark:text-red-400",
           )}
         >
-          {isUp ? <TrendingUp size={9} className="sm:hidden" /> : <TrendingDown size={9} className="sm:hidden" />}
-          {isUp ? <TrendingUp size={11} className="hidden sm:block" /> : <TrendingDown size={11} className="hidden sm:block" />}
+          <ResponsiveIcon icon={isUp ? TrendingUp : TrendingDown} smSize={9} mdSize={11} />
           {isUp ? "+" : ""}
           {trend}%
         </span>
@@ -207,8 +200,7 @@ function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardPro
       </div>
 
       <div className="flex items-center gap-2 border-t border-border pt-2 sm:pt-3">
-        <Clock size={10} className="text-muted-foreground shrink-0 sm:hidden" />
-        <Clock size={12} className="text-muted-foreground shrink-0 hidden sm:block" />
+        <ResponsiveIcon icon={Clock} smSize={10} mdSize={12} className="text-muted-foreground shrink-0" />
         <div className="min-w-0">
           <p className="text-[9px] sm:text-[11px] text-foreground/70 leading-tight truncate">{trendLabel}</p>
           <p className="text-[9px] sm:text-[11px] text-foreground/70 mt-0.5 truncate">{subLabel}</p>
@@ -219,7 +211,14 @@ function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardPro
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────
-function ChartTooltip({ active, payload, label, dataTab }: any) {
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: { value: number }[];
+  label?: string;
+  dataTab: DataTab;
+}
+
+function ChartTooltip({ active, payload, label, dataTab }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
 
   const value = payload?.[0]?.value;
@@ -237,7 +236,7 @@ function ChartTooltip({ active, payload, label, dataTab }: any) {
 
 // ─── Main view ─────────────────────────────────────────────────────────
 export function MetricasView() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { user } = useUser();
   const { resolvedTheme } = useTheme();
 
@@ -249,7 +248,6 @@ export function MetricasView() {
   const [chartData, setChartData] = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -275,7 +273,6 @@ export function MetricasView() {
         }
 
         const currentTeamId = Number(userData.team_id);
-        console.log(`🏢 Loading metrics for team: ${currentTeamId}`);
 
         const ticketsMetrics = await fetchTicketsMetrics(supabase, currentTeamId);
         setTotalTickets(ticketsMetrics.total);
@@ -333,15 +330,8 @@ export function MetricasView() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+      <div className="flex items-center px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0">
         <h1 className="text-foreground text-base sm:text-lg md:text-xl font-semibold">Métricas</h1>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-1.5 hover:bg-accent rounded-lg transition-colors"
-          aria-label="Menú"
-        >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
       </div>
 
       {/* Content */}
@@ -451,12 +441,12 @@ export function MetricasView() {
 
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: tickColor, fontSize: 12 }}
+                    tick={{ fill: tickColor, fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fill: tickColor, fontSize: 12 }}
+                    tick={{ fill: tickColor, fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
