@@ -44,8 +44,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveIcon } from "@/components/responsive-icon";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 
-/* ─── Types ─────────────────────────────────────────────────────────────────── */
+/* ─── Types ─────────────────────────────────────────────────────────── */
 
 export type KanbanColumn = "Tareas" | "En proceso" | "Pendiente" | "Terminada";
 export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
@@ -77,7 +78,7 @@ export const ICON_MAP: Record<IconUserId, React.ElementType> = {
   Cat,
 };
 
-/* ─── Column config ──────────────────────────────────────────────────────────── */
+/* ─── Column config ─────────────────────────────────────────────────────── */
 
 interface ColumnConfig {
   id: KanbanColumn;
@@ -96,7 +97,7 @@ const COLUMNS: ColumnConfig[] = [
   },
 ];
 
-/* ─── Shared classes ─────────────────────────────────────────────────────────── */
+/* ─── Shared classes ─────────────────────────────────────────────────────── */
 
 const headerButtonClass =
   "flex items-center gap-2 rounded-md bg-primary text-primary-foreground text-xs sm:text-sm px-3 sm:px-4 py-2 transition-colors hover:opacity-90";
@@ -111,7 +112,7 @@ const inputClass =
 
 const checkboxClass = "w-4 h-4 rounded border-border accent-primary cursor-pointer";
 
-/* ─── TaskCard ───────────────────────────────────────────────────────────────── */
+/* ─── TaskCard ──────────────────────────────────────────────────────────── */
 
 function TaskCardContent({
   task,
@@ -231,7 +232,7 @@ function TaskCardContent({
   );
 }
 
-/* ─── Sortable Task Card ────────────────────────────────────────────────────── */
+/* ─── Sortable Task Card ─────────────────────────────────────────────────── */
 
 function SortableTaskCard({
   task,
@@ -283,7 +284,7 @@ function SortableTaskCard({
   );
 }
 
-/* ─── Droppable Column ───────────────────────────────────────────────────────── */
+/* ─── Droppable Column ────────────────────────────────────────────────────── */
 
 function KanbanColumnPanel({
   config,
@@ -351,7 +352,7 @@ function KanbanColumnPanel({
   );
 }
 
-/* ─── Create/Edit Task Sidebar ──────────────────────────────────────────────── */
+/* ─── Create/Edit Task Sidebar ───────────────────────────────────────────── */
 
 function CreateTaskSidebar({
   onClose,
@@ -581,7 +582,7 @@ function CreateTaskSidebar({
   );
 }
 
-/* ─── Main View ──────────────────────────────────────────────────────────────── */
+/* ─── Main View ──────────────────────────────────────────────────────── */
 
 export function KanbanView() {
   const { user } = useUser();
@@ -599,21 +600,18 @@ export function KanbanView() {
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [teamName, setTeamName] = useState<string>("");
 
+  // ✅ Estados para el modal de confirmación de eliminación de tarea
+  const [confirmDeleteTask, setConfirmDeleteTask] = useState<string | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+
   const onEdit = (task: KanbanTask) => {
     setEditTask(task);
     setShowCreate(true);
   };
 
-  const onDelete = async (taskId: string) => {
-    if (!confirm("¿Eliminar esta tarea?")) return;
-    try {
-      await supabase.from("tasks").delete().eq("id", taskId);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      toast({ title: "Tarea eliminada" });
-    } catch (error) {
-      console.error("Error deleting task", error);
-      toast({ title: "Error eliminando tarea", variant: "destructive" });
-    }
+  // ✅ onDelete del menú contextual de la card — ahora abre el modal
+  const onDelete = (taskId: string) => {
+    setConfirmDeleteTask(taskId);
   };
 
   const sensors = useSensors(
@@ -850,12 +848,19 @@ export function KanbanView() {
     await fetchTasks(myTeamId!);
   }
 
-  async function handleDeleteTask(taskId: string) {
-    const confirmed = window.confirm("¿Eliminar esta tarea?");
-    if (!confirmed) return;
+  // ✅ Ahora abre el modal de confirmación en lugar de window.confirm
+  function handleDeleteTask(taskId: string) {
+    setConfirmDeleteTask(taskId);
+  }
 
-    const task = tasks.find((t) => t.id === taskId);
+  // ✅ Se ejecuta cuando el usuario confirma en el modal
+  async function confirmDeleteTaskAction() {
+    if (!confirmDeleteTask) return;
+
+    const task = tasks.find((t) => t.id === confirmDeleteTask);
     if (!task) return;
+
+    setIsDeletingTask(true);
 
     const { error } = await supabase
       .from("tasks")
@@ -867,11 +872,15 @@ export function KanbanView() {
         title: "Error al eliminar",
         description: "No se pudo eliminar.",
       });
+      setIsDeletingTask(false);
+      setConfirmDeleteTask(null);
       return;
     }
 
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setTasks((prev) => prev.filter((t) => t.id !== confirmDeleteTask));
     toast({ title: "Tarea eliminada" });
+    setIsDeletingTask(false);
+    setConfirmDeleteTask(null);
   }
 
   return (
@@ -959,6 +968,17 @@ export function KanbanView() {
           />
         )}
       </AnimatePresence>
+
+      {/* ✅ Modal de confirmación para eliminar tarea */}
+      <ConfirmDeleteModal
+        open={!!confirmDeleteTask}
+        title="¿Eliminar esta tarea?"
+        description={`Se eliminará la tarea "${tasks.find((t) => t.id === confirmDeleteTask)?.title ?? ""}". Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar tarea"
+        isLoading={isDeletingTask}
+        onConfirm={confirmDeleteTaskAction}
+        onCancel={() => setConfirmDeleteTask(null)}
+      />
     </div>
   );
 }

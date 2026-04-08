@@ -37,6 +37,7 @@ import {
   TypeIcon,
 } from "@/components/ticket-cells";
 import { CreateTicketModal } from "@/components/create-ticket-modal";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
 
 /* ─── Client-only time ──────────────────────────────────────────────────── */
@@ -438,7 +439,7 @@ function MobileTicketCard({
   );
 }
 
-/* ─── Main View ───────────────────────────────────────────────────────── */
+/* ─── Main View ──────────────────────────────────────────────────────── */
 
 export function TicketsView() {
   const { user } = useUser();
@@ -459,6 +460,10 @@ export function TicketsView() {
   const [myTeamId, setMyTeamId] = useState<number | null>(null);
   const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string; avatar_icon?: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // ✅ Estados para el modal de confirmación de eliminación
+  const [confirmDelete, setConfirmDelete] = useState<Ticket | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // IMPORTANT: avoid dnd-kit SSR hydration mismatches (aria-describedby IDs)
   const [mounted, setMounted] = useState(false);
@@ -738,7 +743,8 @@ export function TicketsView() {
     }
   };
 
-  const handleDeleteTicket = async (ticket: Ticket) => {
+  // ✅ Ahora abre el modal de confirmación en lugar de eliminar directo
+  const handleDeleteTicket = (ticket: Ticket) => {
     if (!isAdmin && ticket.user_id !== myUserId) {
       toast({
         title: "No autorizado",
@@ -746,11 +752,19 @@ export function TicketsView() {
       });
       return;
     }
+    setConfirmDelete(ticket);
+  };
+
+  // ✅ Se ejecuta cuando el usuario confirma en el modal
+  const confirmDeleteTicket = async () => {
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
 
     const { error } = await supabase
       .from("tickets")
       .update({ is_active: false })
-      .eq("id", ticket.dbId);
+      .eq("id", confirmDelete.dbId);
 
     if (error) {
       toast({
@@ -758,14 +772,17 @@ export function TicketsView() {
         description: "No se pudo eliminar el ticket.",
       });
       console.error(error);
+      setIsDeleting(false);
       return;
     }
 
-    setTickets((prev) => prev.filter((t) => t.dbId !== ticket.dbId));
+    setTickets((prev) => prev.filter((t) => t.dbId !== confirmDelete.dbId));
     toast({
       title: "Ticket eliminado",
       description: "Ticket eliminado correctamente.",
     });
+    setConfirmDelete(null);
+    setIsDeleting(false);
   };
 
   const SORT_LABELS: Record<SortKey, string> = {
@@ -1038,6 +1055,17 @@ export function TicketsView() {
         onClose={() => setModalOpen(false)}
         onAdd={handleAddTicket}
         members={areaMembers}
+      />
+
+      {/* ✅ Modal de confirmación para eliminar ticket */}
+      <ConfirmDeleteModal
+        open={!!confirmDelete}
+        title="¿Eliminar este ticket?"
+        description={`Se eliminará el ticket "${confirmDelete?.description.slice(0, 50)}${(confirmDelete?.description.length ?? 0) > 50 ? "..." : ""}". Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar ticket"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteTicket}
+        onCancel={() => setConfirmDelete(null)}
       />
     </div>
   );

@@ -32,6 +32,7 @@ import {
   HandMetal,
   Sticker,
   Biohazard,
+  Trash2,
   X,
   ChevronLeft,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 import { ResponsiveIcon } from "@/components/responsive-icon";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 
 /* ─── Icon picker config ─────────────────────────────────────────────────── */
 
@@ -634,6 +636,7 @@ function TeamDetailPane({
   team,
   isAdmin,
   onEdit,
+  onDeleteTeam,
   onMemberAdded,
   onMemberRemove,
   onEditMember,
@@ -644,6 +647,7 @@ function TeamDetailPane({
   team: Team;
   isAdmin: boolean;
   onEdit: () => void;
+  onDeleteTeam: () => void;
   onMemberAdded: (teamId: number, name: string, email: string, iconId: IconUserId) => Promise<{ success: boolean; password?: string; message: string }>;
   onMemberRemove: (teamId: number, memberId: string | number) => Promise<void>;
   onEditMember: (member: EditingUser) => void;
@@ -673,16 +677,30 @@ function TeamDetailPane({
         </div>
 
         {isAdmin && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onEdit}
-            className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-xs transition-colors mb-1"
-            type="button"
-          >
-            <Pencil size={11} />
-            Editar Equipo
-          </motion.button>
+          <div className="flex items-center gap-3 mb-1">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onEdit}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-xs transition-colors"
+              type="button"
+            >
+              <Pencil size={11} />
+              Editar
+            </motion.button>
+
+            {/* ✅ Botón eliminar equipo */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onDeleteTeam}
+              className="flex items-center gap-1 text-destructive hover:text-destructive/80 text-xs transition-colors"
+              type="button"
+            >
+              <Trash2 size={11} />
+              Eliminar
+            </motion.button>
+          </div>
         )}
 
         <p className="text-foreground font-semibold text-sm">{team.area}</p>
@@ -724,7 +742,7 @@ function TeamDetailPane({
                     >
                       Editar
                     </button>
-                    {/* ✅ Botón eliminar con contraste dark/light */}
+                    {/* ✅ Botón eliminar miembro con contraste dark/light */}
                     <button
                       type="button"
                       onClick={() => onMemberRemove(team.id, m.id)}
@@ -767,6 +785,7 @@ function TeamDetailPane({
 
 export function EquiposView() {
   const { user, addUser, deactivateUser } = useUser();
+  const { toast } = useToast();
   const isAdmin = user.role === "admin";
   const supabase = useMemo(() => createClient(), []);
 
@@ -781,6 +800,14 @@ export function EquiposView() {
   const [editingMember, setEditingMember] = useState<EditingUser | null>(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDetailPane, setShowDetailPane] = useState(false);
+
+  // ✅ Estados para el modal de confirmación de eliminación de miembro
+  const [confirmDeleteMember, setConfirmDeleteMember] = useState<{ teamId: number; member: TeamMember } | null>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
+
+  // ✅ Estados para el modal de confirmación de eliminación de equipo
+  const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<Team | null>(null);
+  const [isDeletingTeam, setIsDeletingTeam] = useState(false);
 
   const refreshTeams = async () => {
     setIsLoadingTeams(true);
@@ -950,7 +977,23 @@ export function EquiposView() {
     }
   }
 
+  // ✅ Abre el modal de confirmación para eliminar miembro
   async function handleMemberRemove(teamId: number, memberId: string | number) {
+    const team = teams.find((t) => t.id === teamId);
+    const member = team?.members.find((m) => m.id === memberId);
+    if (member) {
+      setConfirmDeleteMember({ teamId, member });
+    }
+  }
+
+  // ✅ Se ejecuta cuando el usuario confirma eliminar miembro
+  async function confirmRemoveMember() {
+    if (!confirmDeleteMember) return;
+
+    const { teamId, member } = confirmDeleteMember;
+    const memberId = member.id;
+
+    setIsDeletingMember(true);
     setDeletingMemberId(typeof memberId === "number" ? memberId : Number(memberId));
     setStatusMessage(null);
 
@@ -980,10 +1023,86 @@ export function EquiposView() {
       }
 
       setStatusMessage("Miembro eliminado correctamente.");
+      toast({ title: "Miembro eliminado", description: "El integrante fue eliminado correctamente." });
     } catch {
       setStatusMessage("Error al eliminar miembro. Revisa la consola.");
+      toast({ title: "Error al eliminar", description: "No se pudo eliminar el miembro.", variant: "destructive" });
     } finally {
       setDeletingMemberId(null);
+      setIsDeletingMember(false);
+      setConfirmDeleteMember(null);
+    }
+  }
+
+  // ✅ Abre el modal de confirmación para eliminar equipo
+  function handleTeamRemove() {
+    if (activeTeam && activeTeam.id !== 0) {
+      setConfirmDeleteTeam(activeTeam);
+    }
+  }
+
+  // ✅ Se ejecuta cuando el usuario confirma eliminar equipo
+  async function confirmRemoveTeam() {
+    if (!confirmDeleteTeam) return;
+
+    setIsDeletingTeam(true);
+
+    try {
+      // Desactivar el equipo
+      const { error: teamError } = await supabase
+        .from("teams")
+        .update({ is_active: false })
+        .eq("id", confirmDeleteTeam.id);
+
+      if (teamError) {
+        console.error("Error al desactivar equipo", teamError);
+        toast({ title: "Error al eliminar equipo", description: "No se pudo eliminar el equipo.", variant: "destructive" });
+        return;
+      }
+
+      // Desactivar todos los miembros activos del equipo
+      const activeMembers = confirmDeleteTeam.members.filter((m) => m.isActive);
+      if (activeMembers.length > 0) {
+        const memberIds = activeMembers.map((m) => m.id);
+        const { error: membersError } = await supabase
+          .from("users")
+          .update({ is_active: false })
+          .in("id", memberIds);
+
+        if (membersError) {
+          console.error("Error al desactivar miembros del equipo", membersError);
+        }
+
+        // Desactivar cada miembro del contexto
+        activeMembers.forEach((m) => {
+          if (typeof m.id === "number") {
+            deactivateUser(m.id);
+          } else {
+            const parsed = Number(m.id);
+            if (!Number.isNaN(parsed)) {
+              deactivateUser(parsed);
+            }
+          }
+        });
+      }
+
+      // Actualizar estado local
+      setTeams((prev) => prev.filter((t) => t.id !== confirmDeleteTeam.id));
+
+      // Seleccionar otro equipo si el eliminado era el activo
+      if (activeTeamId === confirmDeleteTeam.id) {
+        const remaining = teams.filter((t) => t.id !== confirmDeleteTeam.id);
+        setActiveTeamId(remaining.length > 0 ? remaining[0].id : null);
+      }
+
+      setShowDetailPane(false);
+      toast({ title: "Equipo eliminado", description: `"${confirmDeleteTeam.name}" fue eliminado correctamente.` });
+    } catch (error) {
+      console.error("Error al eliminar equipo", error);
+      toast({ title: "Error al eliminar equipo", description: "Ocurrió un error inesperado.", variant: "destructive" });
+    } finally {
+      setIsDeletingTeam(false);
+      setConfirmDeleteTeam(null);
     }
   }
 
@@ -1040,6 +1159,7 @@ export function EquiposView() {
               team={activeTeam}
               isAdmin={isAdmin}
               onEdit={() => setEditingTeam(activeTeam)}
+              onDeleteTeam={handleTeamRemove}
               onMemberAdded={handleMemberAdded}
               onMemberRemove={handleMemberRemove}
               onEditMember={(member) => {
@@ -1070,6 +1190,7 @@ export function EquiposView() {
                       team={activeTeam}
                       isAdmin={isAdmin}
                       onEdit={() => setEditingTeam(activeTeam)}
+                      onDeleteTeam={handleTeamRemove}
                       onMemberAdded={handleMemberAdded}
                       onMemberRemove={handleMemberRemove}
                       onEditMember={(member) => {
@@ -1116,6 +1237,28 @@ export function EquiposView() {
           />
         )}
       </AnimatePresence>
+
+      {/* ✅ Modal de confirmación para eliminar miembro */}
+      <ConfirmDeleteModal
+        open={!!confirmDeleteMember}
+        title="¿Eliminar este integrante?"
+        description={`Se eliminará a "${confirmDeleteMember?.member.full_name ?? confirmDeleteMember?.member.name ?? ""}". Perderá acceso al sistema. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar integrante"
+        isLoading={isDeletingMember}
+        onConfirm={confirmRemoveMember}
+        onCancel={() => setConfirmDeleteMember(null)}
+      />
+
+      {/* ✅ Modal de confirmación para eliminar equipo */}
+      <ConfirmDeleteModal
+        open={!!confirmDeleteTeam}
+        title="¿Eliminar este equipo?"
+        description={`Se eliminará "${confirmDeleteTeam?.name ?? ""}" y todos sus integrantes (${confirmDeleteTeam?.members.filter((m) => m.isActive).length ?? 0}) perderán acceso al sistema. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar equipo"
+        isLoading={isDeletingTeam}
+        onConfirm={confirmRemoveTeam}
+        onCancel={() => setConfirmDeleteTeam(null)}
+      />
     </div>
   );
 }
