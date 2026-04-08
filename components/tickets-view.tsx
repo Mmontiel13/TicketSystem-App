@@ -777,13 +777,13 @@ export function TicketsView() {
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 md:px-8 py-4 border-b border-border">
-        <h1 className="text-foreground text-xl font-semibold">Tickets</h1>
+      <div className="relative flex items-center justify-center sm:justify-between px-4 md:px-8 py-4 border-b border-border">
+        <h1 className="text-foreground text-xl font-semibold text-center sm:text-left">Tickets</h1>
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors"
+          className="absolute right-4 md:right-8 sm:relative sm:right-auto flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors"
         >
           <PlusCircle size={15} />
           <span className="hidden sm:inline">Crear nuevo</span>

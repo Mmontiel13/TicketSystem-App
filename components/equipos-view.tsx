@@ -41,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 import { ResponsiveIcon } from "@/components/responsive-icon";
 
-/* ─── Icon picker config ────────────────────────────────────────────────────── */
+/* ─── Icon picker config ─────────────────────────────────────────────────── */
 
 const TEAM_ICONS = [
   { id: "BadgeDollarSign", icon: BadgeDollarSign },
@@ -93,7 +93,7 @@ function iconByUserId(id: IconUserId) {
   return USER_ICONS.find((i) => i.id === id)?.icon ?? Users;
 }
 
-/* ─── Types ─────────────────────────────────────────────────────────────────── */
+/* ─── Types ─────────────────────────────────────────────────────────── */
 
 type TeamMember = {
   id: string | number;
@@ -114,7 +114,7 @@ interface Team {
   members: TeamMember[];
 }
 
-/* ─── Shared UI class helpers ──────────────────────────────────────────────── */
+/* ─── Shared UI class helpers ──────────────────────────────────────────── */
 
 const inputClass =
   "w-full rounded-md border border-input bg-background text-foreground text-sm px-3 py-2 outline-none " +
@@ -128,7 +128,11 @@ const modalSurfaceClass =
   "fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border p-4 md:p-6 shadow-2xl " +
   "bg-popover/90 backdrop-blur-xl text-popover-foreground max-h-[90vh] overflow-y-auto";
 
-/* ─── Icon Grid Picker ──────────────────────────────────────────────────────── */
+/* Botón circular de cerrar — reutilizable */
+const closeButtonClass =
+  "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border border-border bg-accent text-foreground hover:bg-muted hover:text-muted-foreground transition-colors";
+
+/* ─── Icon Grid Picker ──────────────────────────────────────────────────── */
 
 function IconPicker({
   selected,
@@ -162,7 +166,7 @@ function IconPicker({
   );
 }
 
-/* ─── Team modal (create + edit) ────────────────────────────────────────────── */
+/* ─── Team modal (create + edit) ─────────────────────────────────────────── */
 
 function TeamModal({
   initial,
@@ -234,12 +238,13 @@ function TeamModal({
         aria-modal="true"
         aria-label={isEdit ? "Editar equipo" : "Agregar equipo nuevo"}
       >
+        {/* ✅ Botón cerrar con contraste */}
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar"
         >
-          <X size={20} />
+          <X size={16} />
         </button>
 
         <h2 className="text-foreground font-semibold text-base mb-1">
@@ -291,7 +296,7 @@ function TeamModal({
   );
 }
 
-/* ─── User Icon Picker ──────────────────────────────────────────────────────── */
+/* ─── User Icon Picker ──────────────────────────────────────────────────── */
 
 function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect: (id: IconUserId) => void }) {
   return (
@@ -317,7 +322,7 @@ function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect
   );
 }
 
-/* ─── Add Member Modal ──────────────────────────────────────────────────────── */
+/* ─── Add Member Modal ──────────────────────────────────────────────────── */
 
 function sendWelcomeEmail(userEmail: string, generatedPassword: string) {
   console.info("Enviando correo de bienvenida:", {
@@ -475,12 +480,13 @@ function AddMemberModal({
         aria-modal="true"
         aria-label={isEditMode ? "Editar integrante" : "Agregar integrante"}
       >
+        {/* ✅ Botón cerrar con contraste */}
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar"
         >
-          <X size={20} />
+          <X size={16} />
         </button>
 
         <h2 className="text-foreground font-semibold text-base mb-1">
@@ -520,11 +526,14 @@ function AddMemberModal({
           <UserIconPicker selected={selectedIcon} onSelect={setSelectedIcon} />
         </div>
 
+        {/* ✅ Feedback con contraste dark/light */}
         {feedback && (
           <div
             className={cn(
-              "mb-3 rounded-md px-3 py-2 text-sm",
-              isSuccess ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+              "mb-3 rounded-md px-3 py-2 text-sm border",
+              isSuccess
+                ? "bg-green-500/10 text-green-700 dark:text-green-300 border-green-600/30 dark:border-green-700/50"
+                : "bg-destructive/10 text-destructive border-destructive/30"
             )}
           >
             {feedback}
@@ -579,7 +588,7 @@ function AddMemberModal({
   );
 }
 
-/* ─── Team card ─────────────────────────────────────────────────────────────── */
+/* ─── Team card ──────────────────────────────────────────────────────── */
 
 function TeamCard({
   team,
@@ -619,7 +628,7 @@ function TeamCard({
   );
 }
 
-/* ─── Detail pane ───────────────────────────────────────────────────────────── */
+/* ─── Detail pane ───────────────────────────────────────────────────── */
 
 function TeamDetailPane({
   team,
@@ -646,14 +655,14 @@ function TeamDetailPane({
 
   return (
     <div className="h-full rounded-lg border border-border p-3 sm:p-5 flex flex-col bg-card min-h-0">
-      {/* Mobile close button */}
+      {/* ✅ Botón cerrar mobile drawer — con contraste */}
       {onClose && (
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 sm:hidden text-muted-foreground hover:text-foreground"
+          className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar panel"
         >
-          <X size={20} />
+          <X size={16} />
         </button>
       )}
 
@@ -689,7 +698,7 @@ function TeamDetailPane({
               return (
                 <div
                   key={m.id}
-                  className="rounded-lg sm:rounded-xl border border-border bg-white/10 backdrop-blur-sm p-2 sm:p-3 min-w-0"
+                  className="rounded-lg sm:rounded-xl border border-border bg-muted/50 backdrop-blur-sm p-2 sm:p-3 min-w-0"
                 >
                   <div className="flex items-start gap-2 sm:gap-3">
                     <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
@@ -715,13 +724,15 @@ function TeamDetailPane({
                     >
                       Editar
                     </button>
+                    {/* ✅ Botón eliminar con contraste dark/light */}
                     <button
                       type="button"
                       onClick={() => onMemberRemove(team.id, m.id)}
                       disabled={deletingMemberId === m.id}
                       className={cn(
-                        "rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] sm:text-xs font-medium text-red-600 hover:bg-red-100 flex-1 sm:flex-none",
-                        deletingMemberId === m.id ? "opacity-50 cursor-not-allowed" : ""
+                        "rounded-md border px-2 py-1 text-[10px] sm:text-xs font-medium flex-1 sm:flex-none transition-colors",
+                        "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20",
+                        deletingMemberId === m.id && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       {deletingMemberId === m.id ? "Eliminando..." : "Eliminar"}
@@ -752,7 +763,7 @@ function TeamDetailPane({
   );
 }
 
-/* ─── Main View ──────────────────────────────────────────────────────────────── */
+/* ─── Main View ──────────────────────────────────────────────────────── */
 
 export function EquiposView() {
   const { user, addUser, deactivateUser } = useUser();
@@ -978,14 +989,14 @@ export function EquiposView() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
-        <h1 className="text-foreground font-semibold text-base sm:text-lg">Equipos</h1>
+      <header className="relative flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+        <h1 className="text-foreground font-semibold text-base sm:text-lg text-center sm:text-left">Equipos</h1>
         {isAdmin && (
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowAddTeam(true)}
-            className={cn(primaryButtonClass, "text-xs sm:text-sm px-3 sm:px-4")}
+            className={cn(primaryButtonClass, "absolute right-3 sm:right-4 md:right-8 sm:relative sm:right-auto text-xs sm:text-sm px-3 sm:px-4")}
             type="button"
           >
             <Plus size={14} />
@@ -995,8 +1006,9 @@ export function EquiposView() {
         )}
       </header>
 
+      {/* ✅ Status message con contraste dark/light */}
       {statusMessage && (
-        <div className="px-3 sm:px-4 md:px-8 py-2 text-xs sm:text-sm text-green-700 bg-green-100 border border-green-200">
+        <div className="px-3 sm:px-4 md:px-8 py-2 text-xs sm:text-sm text-green-700 dark:text-green-300 bg-green-500/10 border border-green-600/30 dark:border-green-700/50">
           {statusMessage}
         </div>
       )}

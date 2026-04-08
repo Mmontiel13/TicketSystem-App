@@ -877,14 +877,13 @@ export function KanbanView() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
-        <h1 className="text-foreground font-semibold text-base sm:text-lg md:text-xl">Kanban</h1>
-
+      <header className="relative flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+        <h1 className="text-foreground font-semibold text-base sm:text-lg md:text-xl text-center sm:text-left">Kanban</h1>
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setShowCreate(true)}
-          className={headerButtonClass}
+          className={cn(headerButtonClass, "absolute right-3 sm:right-4 md:right-8 sm:relative sm:right-auto")}
           type="button"
         >
           <ResponsiveIcon icon={Plus} smSize={12} mdSize={14} />
