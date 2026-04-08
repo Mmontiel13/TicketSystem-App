@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Plus, Monitor, Printer, Wifi, HelpCircle, UserCircle, Users, Briefcase, Code } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ResponsiveIcon } from "@/components/responsive-icon";
 import { TicketType } from "@/lib/mock-tickets";
 import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
 import { useToast } from "@/hooks/use-toast";
@@ -114,14 +115,13 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
             "bg-popover/80 backdrop-blur-xl max-h-[90vh] overflow-y-auto"
           )}
         >
-          {/* Close */}
+          {/* Close — círculo con X */}
           <button
             onClick={onClose}
-            className="absolute top-3 sm:top-4 right-3 sm:right-4 text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-accent rounded-lg"
+            className="absolute top-3 sm:top-4 right-3 sm:right-4 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             aria-label="Cerrar"
           >
-            <X size={18} className="sm:block" />
-            <X size={20} className="hidden sm:block" />
+            <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </button>
 
           {/* Header */}
@@ -174,8 +174,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                   )}
                   type="button"
                 >
-                  <Icon size={16} className="sm:hidden" />
-                  <Icon size={20} className="hidden sm:block" />
+                  <ResponsiveIcon icon={Icon} smSize={16} mdSize={20} />
                   <span className="leading-tight text-center truncate">{label}</span>
                 </motion.button>
               ))}
@@ -210,19 +209,14 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                 </p>
               ) : (
                 members.map((m) => (
-                  <motion.label
+                  <label
                     key={m.id}
-                    whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
                     className="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-accent/30 transition-colors"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {(() => {
-                        const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
-                        return <Icon size={18} className="text-muted-foreground shrink-0 sm:hidden" />;
-                      })()}
-                      {(() => {
-                        const Icon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
-                        return <Icon size={24} className="text-muted-foreground shrink-0 hidden sm:block" />;
+                        const MemberIcon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
+                        return <ResponsiveIcon icon={MemberIcon} smSize={18} mdSize={24} className="text-muted-foreground shrink-0" />;
                       })()}
                       <span className="text-xs sm:text-sm text-foreground truncate">
                         {m.full_name}
@@ -235,7 +229,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                       onChange={() => toggleMember(m.id)}
                       className="accent-[color:var(--color-primary)] cursor-pointer shrink-0"
                     />
-                  </motion.label>
+                  </label>
                 ))
               )}
             </div>
@@ -292,8 +286,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
             )}
             type="button"
           >
-            <Plus size={14} className="sm:hidden" />
-            <Plus size={16} className="hidden sm:block" />
+            <ResponsiveIcon icon={Plus} smSize={14} mdSize={16} />
             Agregar
           </motion.button>
         </motion.div>

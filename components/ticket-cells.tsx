@@ -2,12 +2,25 @@
 
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { type TicketPriority } from "@/lib/mock-tickets";
+import { type TicketStatus } from "@/lib/mock-tickets";
+import { MinusCircle, CheckCircle2, Loader } from "lucide-react";
+import { type TicketType } from "@/lib/mock-tickets";
+import { Monitor, Printer, Wifi, HelpCircle, Users, Code } from "lucide-react";
 
 interface RemainingBarProps {
   arrivalTime: string;
   maxWaitMinutes: number;
   status?: "Pendiente" | "En proceso" | "Terminada";
 }
+
+/* ─── Colores semánticos para la barra de tiempo ─────────────────────────── */
+/* Usamos clases Tailwind para que se adapten a dark/light automáticamente  */
+const BAR_COLORS = {
+  green: "bg-green-500 dark:bg-green-400",
+  yellow: "bg-yellow-500 dark:bg-yellow-400",
+  red: "bg-red-500 dark:bg-red-400",
+} as const;
 
 function calcRemaining(arrivalTime: string, maxWaitMinutes: number) {
   const now = Date.now();
@@ -19,22 +32,21 @@ function calcRemaining(arrivalTime: string, maxWaitMinutes: number) {
     ? 0
     : Math.max(0, Math.min(100, ((maxMs - elapsed) / maxMs) * 100));
 
-  // semántico (puedes tokenizarlo después si quieres)
-  let barColor: string;
-  if (isExpired) barColor = "#ef4444";
-  else if (percentRemaining > 50) barColor = "#22c55e";
-  else if (percentRemaining > 10) barColor = "#eab308";
-  else barColor = "#ef4444";
+  let barColorClass: string;
+  if (isExpired) barColorClass = BAR_COLORS.red;
+  else if (percentRemaining > 50) barColorClass = BAR_COLORS.green;
+  else if (percentRemaining > 10) barColorClass = BAR_COLORS.yellow;
+  else barColorClass = BAR_COLORS.red;
 
   const minutesLeft = Math.max(0, Math.floor((maxMs - elapsed) / 60000));
-  return { isExpired, percentRemaining, barColor, minutesLeft };
+  return { isExpired, percentRemaining, barColorClass, minutesLeft };
 }
 
 // Stable SSR placeholder — no Date.now() called until after mount.
 const BAR_PLACEHOLDER = {
   isExpired: false,
   percentRemaining: 0,
-  barColor: "#3f3f46",
+  barColorClass: "bg-muted-foreground",
   minutesLeft: 0,
 };
 
@@ -52,7 +64,7 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
         setValues({
           isExpired: false,
           percentRemaining: 100,
-          barColor: "#22c55e",
+          barColorClass: BAR_COLORS.green,
           minutesLeft: 0,
         });
       } else {
@@ -65,15 +77,15 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
     return () => clearInterval(id);
   }, [arrivalTime, maxWaitMinutes, status]);
 
-  const { isExpired, percentRemaining, barColor, minutesLeft } = values;
+  const { isExpired, percentRemaining, barColorClass, minutesLeft } = values;
 
   return (
-    <div className="flex flex-col gap-1 w-[100px]">
+    <div className="flex flex-col gap-1 w-full max-w-[100px]">
       <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
         {mounted && (
           <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${percentRemaining}%`, backgroundColor: barColor }}
+            className={cn("h-full rounded-full transition-all duration-500", barColorClass)}
+            style={{ width: `${percentRemaining}%` }}
           />
         )}
       </div>
@@ -94,18 +106,18 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
 }
 
 // ----- Priority badge -----
-import { type TicketPriority } from "@/lib/mock-tickets";
 
 interface PriorityBadgeProps {
   priority: TicketPriority;
   expired: boolean;
 }
 
-const PRIORITY_DOT: Record<TicketPriority, string> = {
-  Alta: "#ef4444",
-  Media: "#eab308",
-  Baja: "#22c55e",
-  Vencido: "#6b7280",
+/* Clases Tailwind en lugar de hex hardcoded — se adaptan a dark/light */
+const PRIORITY_DOT_CLASS: Record<TicketPriority, string> = {
+  Alta: "bg-red-500 dark:bg-red-400",
+  Media: "bg-yellow-500 dark:bg-yellow-400",
+  Baja: "bg-green-500 dark:bg-green-400",
+  Vencido: "bg-muted-foreground",
 };
 
 export function PriorityBadge({ priority, expired }: PriorityBadgeProps) {
@@ -126,16 +138,13 @@ export function PriorityBadge({ priority, expired }: PriorityBadgeProps) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
-        className="w-2.5 h-2.5 rounded-full inline-block"
-        style={{ backgroundColor: PRIORITY_DOT[priority] }}
+        className={cn("w-2.5 h-2.5 rounded-full inline-block", PRIORITY_DOT_CLASS[priority])}
       />
     </span>
   );
 }
 
 // ----- Status badge -----
-import { type TicketStatus } from "@/lib/mock-tickets";
-import { MinusCircle, CheckCircle2, Loader } from "lucide-react";
 
 interface StatusBadgeProps {
   status: TicketStatus;
@@ -179,8 +188,6 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 }
 
 // ----- Type icon -----
-import { type TicketType } from "@/lib/mock-tickets";
-import { Monitor, Printer, Wifi, HelpCircle, Users, Code } from "lucide-react";
 
 interface TypeIconProps {
   type: TicketType;
