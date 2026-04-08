@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ResponsiveIcon } from "@/components/responsive-icon";
 
 const HELP_CARDS = [
   {
@@ -268,18 +269,7 @@ export function AyudaRapidaView() {
               {/* Header */}
               <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-border shrink-0 gap-2">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  {(() => {
-                    const Icon = selectedCard.icon;
-                    return (
-                      <Icon size={20} className="text-foreground shrink-0 sm:hidden" />
-                    );
-                  })()}
-                  {(() => {
-                    const Icon = selectedCard.icon;
-                    return (
-                      <Icon size={28} className="text-foreground shrink-0 hidden sm:block" />
-                    );
-                  })()}
+                  <ResponsiveIcon icon={selectedCard.icon} smSize={20} mdSize={28} className="text-foreground shrink-0" />
                   <h2 className="text-base sm:text-xl md:text-2xl font-semibold text-foreground truncate">
                     {selectedCard.title}
                   </h2>
@@ -291,8 +281,7 @@ export function AyudaRapidaView() {
                   className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-accent rounded-lg shrink-0"
                   aria-label="Cerrar"
                 >
-                  <X size={16} className="sm:hidden" />
-                  <X size={20} className="hidden sm:block" />
+                  <ResponsiveIcon icon={X} smSize={16} mdSize={20} />
                 </motion.button>
               </div>
 

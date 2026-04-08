@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Users,
@@ -39,6 +39,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
+import { ResponsiveIcon } from "@/components/responsive-icon";
 
 /* ─── Icon picker config ────────────────────────────────────────────────────── */
 
@@ -175,7 +176,7 @@ function TeamModal({
   const [teamName, setTeamName] = useState(initial?.area ?? "");
   const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "BadgeDollarSign");
   const [isSaving, setIsSaving] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const isEdit = !!initial;
 
   async function handleSubmit() {
@@ -604,8 +605,7 @@ function TeamCard({
     >
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-md bg-muted border border-border flex items-center justify-center shrink-0">
-          <Icon size={16} className="text-foreground sm:hidden" />
-          <Icon size={20} className="text-foreground hidden sm:block" />
+          <ResponsiveIcon icon={Icon} smSize={16} mdSize={20} className="text-foreground" />
         </div>
         <span className="text-foreground text-xs sm:text-sm font-medium truncate">{team.name}</span>
       </div>
@@ -660,8 +660,7 @@ function TeamDetailPane({
       <div className="flex flex-col items-center mb-4 sm:mb-6">
         <p className="text-muted-foreground text-xs mb-2 self-start">Equipo:</p>
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-border bg-muted flex items-center justify-center mb-2">
-          <Icon size={28} className="text-foreground sm:hidden" />
-          <Icon size={36} className="text-foreground hidden sm:block" />
+          <ResponsiveIcon icon={Icon} smSize={28} mdSize={36} className="text-foreground" />
         </div>
 
         {isAdmin && (
@@ -694,8 +693,7 @@ function TeamDetailPane({
                 >
                   <div className="flex items-start gap-2 sm:gap-3">
                     <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
-                      <IconUser size={12} className="text-foreground sm:hidden" />
-                      <IconUser size={18} className="text-foreground hidden sm:block" />
+                      <ResponsiveIcon icon={IconUser} smSize={12} mdSize={18} className="text-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-foreground text-xs sm:text-sm font-semibold truncate">{m.full_name ?? m.name}</p>
@@ -759,7 +757,7 @@ function TeamDetailPane({
 export function EquiposView() {
   const { user, addUser, deactivateUser } = useUser();
   const isAdmin = user.role === "admin";
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);

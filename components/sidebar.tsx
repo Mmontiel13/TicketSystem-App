@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   CheckSquare,
   BarChart2,
@@ -61,10 +62,11 @@ function AsiatechMark({ isDark }: { isDark: boolean }) {
   if (!mounted) return null;
 
   return (
-    <img
+    <Image
       src="/logodark.svg"
       alt="asiatech logo"
       width={100}
+      height={40}
       className="object-contain mx-auto"
       style={{
         filter: isDark ? "brightness(0) invert(1)" : "none",
@@ -223,7 +225,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
             <ProfileIcon size={32} className="text-muted-foreground shrink-0" />
           )
         })()}
-        <span className="text-sm text-zinc-300 flex-1">{user.name || user.email}</span>
+        <span className="text-sm text-muted-foreground flex-1">{user.name || user.email}</span>
         <button
           onClick={handleLogout}
           className="text-zinc-500 hover:text-red-400 transition-colors"

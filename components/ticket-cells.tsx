@@ -2,6 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { type TicketPriority } from "@/lib/mock-tickets";
+import { type TicketStatus } from "@/lib/mock-tickets";
+import { MinusCircle, CheckCircle2, Loader } from "lucide-react";
+import { type TicketType } from "@/lib/mock-tickets";
+import { Monitor, Printer, Wifi, HelpCircle, Users, Code } from "lucide-react";
 
 interface RemainingBarProps {
   arrivalTime: string;
@@ -68,7 +73,7 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
   const { isExpired, percentRemaining, barColor, minutesLeft } = values;
 
   return (
-    <div className="flex flex-col gap-1 w-[100px]">
+    <div className="flex flex-col gap-1 w-full max-w-[100px]">
       <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
         {mounted && (
           <div
@@ -94,7 +99,6 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
 }
 
 // ----- Priority badge -----
-import { type TicketPriority } from "@/lib/mock-tickets";
 
 interface PriorityBadgeProps {
   priority: TicketPriority;
@@ -134,8 +138,6 @@ export function PriorityBadge({ priority, expired }: PriorityBadgeProps) {
 }
 
 // ----- Status badge -----
-import { type TicketStatus } from "@/lib/mock-tickets";
-import { MinusCircle, CheckCircle2, Loader } from "lucide-react";
 
 interface StatusBadgeProps {
   status: TicketStatus;
@@ -179,8 +181,6 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 }
 
 // ----- Type icon -----
-import { type TicketType } from "@/lib/mock-tickets";
-import { Monitor, Printer, Wifi, HelpCircle, Users, Code } from "lucide-react";
 
 interface TypeIconProps {
   type: TicketType;
