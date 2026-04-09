@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { UserProvider, type UserProfile, type UserRole, type IconUserId } from "@/lib/user-context";
+import { NotificationsProvider } from "@/lib/notifications-context";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
@@ -40,17 +41,17 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider initialUser={initialUser}>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        {/* Responsive main content with sidebar offset */}
-        <main className="hidden md:flex flex-1 ml-[230px] min-h-screen flex-col overflow-hidden">
-          {children}
-        </main>
-        {/* Mobile full-width content */}
-        <main className="md:hidden flex-1 min-h-screen flex flex-col overflow-hidden">
-          {children}
-        </main>
-      </div>
+      <NotificationsProvider>
+        <div className="flex min-h-screen bg-background">
+          <Sidebar />
+          <main className="hidden md:flex flex-1 ml-[230px] min-h-screen flex-col overflow-hidden">
+            {children}
+          </main>
+          <main className="md:hidden flex-1 min-h-screen flex flex-col overflow-hidden">
+            {children}
+          </main>
+        </div>
+      </NotificationsProvider>
     </UserProvider>
   );
 }

@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   LogOut,
+  Bell,
   Ghost,
   Rose,
   Rabbit,
@@ -26,8 +27,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, type IconUserId } from "@/lib/user-context";
+import { useNotifications } from "@/lib/notifications-context";
 
-/* ─── Nav config ─────────────────────────────────────────────────────────────── */
+/* ─── Nav config ─────────────────────────────────────────────────────────── */
 
 const NAV_PRINCIPAL_ALL = [
   { label: "Tickets", icon: CheckSquare, href: "/dashboard/tickets", adminOnly: false },
@@ -43,6 +45,12 @@ const NAV_PRINCIPAL_ALL = [
     href: "/dashboard/equipos",
     adminOnly: true,
   },
+  {
+    label: "Notificaciones",
+    icon: Bell,
+    href: "/dashboard/notificaciones",
+    adminOnly: true,
+  },
 ];
 
 const NAV_GENERAL_LINKS = [
@@ -50,7 +58,7 @@ const NAV_GENERAL_LINKS = [
   { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda" },
 ];
 
-/* ─── Logo SVG ───────────────────────────────────────────────────────────────── */
+/* ─── Logo SVG ───────────────────────────────────────────────────────────── */
 
 function AsiatechMark({ isDark }: { isDark: boolean }) {
   const [mounted, setMounted] = useState(false);
@@ -75,7 +83,7 @@ function AsiatechMark({ isDark }: { isDark: boolean }) {
   );
 }
 
-/* ─── Nav link ───────────────────────────────────────────────────────────────── */
+/* ─── Nav link ───────────────────────────────────────────────────────────── */
 
 function userIconById(id: IconUserId) {
   const map: Record<IconUserId, React.ElementType> = {
@@ -95,12 +103,14 @@ function SidebarLink({
   icon: Icon,
   label,
   active,
+  badge,
   onClick,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   active?: boolean;
+  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -118,23 +128,28 @@ function SidebarLink({
         size={16}
         className={active ? "text-foreground" : "text-muted-foreground"}
       />
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
 
-/* ─── Sidebar inner content ──────────────────────────────────────────────────── */
+/* ─── Sidebar inner content ──────────────────────────────────────────────── */
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useUser();
   const { resolvedTheme, setTheme } = useTheme();
+  const { unreadCount } = useNotifications();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // fallback coherente con defaultTheme="dark"
   const isDark = (resolvedTheme ?? "dark") === "dark";
 
   const NAV_PRINCIPAL = NAV_PRINCIPAL_ALL.filter(
@@ -149,6 +164,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   function handleToggleTheme() {
     if (!mounted) return;
     setTheme(isDark ? "light" : "dark");
+  }
+
+  function getBadge(href: string): number | undefined {
+    if (href === "/dashboard/notificaciones") return unreadCount;
+    return undefined;
   }
 
   return (
@@ -173,6 +193,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                 icon={item.icon}
                 label={item.label}
                 active={pathname === item.href}
+                badge={getBadge(item.href)}
                 onClick={onNavClick}
               />
             ))}
@@ -239,7 +260,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   );
 }
 
-/* ─── Main Sidebar (desktop fixed + mobile sheet) ───────────────────────────── */
+/* ─── Main Sidebar (desktop fixed + mobile sheet) ───────────────────────── */
 
 export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
