@@ -10,6 +10,8 @@ import {
   Clock,
   Users,
   UserCircle,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotifications, type Notification } from "@/lib/notifications-context";
@@ -157,8 +159,15 @@ function NotificationCard({
 /* ─── Main View ──────────────────────────────────────────────────────── */
 
 export function NotificationsView() {
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
-    useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    soundEnabled,
+    toggleSound,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
   const [tab, setTab] = useState<TabFilter>("all");
 
   const filtered = notifications.filter((n) => {
@@ -187,6 +196,21 @@ export function NotificationsView() {
               {unreadCount}
             </span>
           )}
+
+          {/* Botón de sonido */}
+          <button
+            onClick={toggleSound}
+            className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-lg border border-border transition-colors",
+              soundEnabled
+                ? "text-foreground hover:bg-accent"
+                : "text-muted-foreground hover:bg-accent"
+            )}
+            aria-label={soundEnabled ? "Silenciar notificaciones" : "Activar sonido"}
+            title={soundEnabled ? "Sonido activado" : "Sonido silenciado"}
+          >
+            {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          </button>
         </div>
 
         {unreadCount > 0 && (
