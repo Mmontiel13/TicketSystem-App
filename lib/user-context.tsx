@@ -4,7 +4,20 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { createClient } from "@/lib/supabase/client";
 
 export type UserRole = "admin" | "user";
-export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
+export type IconUserId =
+  | "Ghost"
+  | "Rose"
+  | "Rabbit"
+  | "Users"
+  | "Fish"
+  | "Cat"
+  | "Skull"
+  | "VenetianMask"
+  | "Volleyball"
+  | "Donut"
+  | "HandMetal"
+  | "Sticker"
+  | "Biohazard";
 
 export interface UserProfile {
   id: number;
@@ -13,6 +26,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   iconId: IconUserId;
+  team_id?: number;
   isActive: boolean;
   deletedAt: Date | null;
 }
@@ -23,6 +37,7 @@ const DEFAULT_USER: UserProfile = {
   email: "",
   role: "user",
   iconId: "Users",
+  team_id: undefined,
   isActive: false,
   deletedAt: null,
 };
@@ -34,6 +49,7 @@ interface UserContextValue {
   authenticate: (identifier: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   addUser: (user: Omit<UserProfile, "id" | "deletedAt" | "isActive"> & { id?: number }) => UserProfile;
+  updateUser: (id: number, updates: Partial<UserProfile>) => void;
   deactivateUser: (id: number) => void;
 }
 
@@ -44,6 +60,7 @@ const UserContext = createContext<UserContextValue>({
   authenticate: async () => ({ success: false, message: "Autenticación no configurada" }),
   logout: async () => {},
   addUser: () => DEFAULT_USER,
+  updateUser: () => {},
   deactivateUser: () => {},
 });
 
@@ -93,6 +110,15 @@ export function UserProvider({
     return newUser;
   };
 
+  const updateUser = (id: number, updates: Partial<UserProfile>) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ...updates } : u)),
+    );
+    if (user.id === id) {
+      setUser((prev) => ({ ...prev, ...updates }));
+    }
+  };
+
   const deactivateUser = (id: number) => {
     setUsers((prev) =>
       prev.map((u) =>
@@ -109,7 +135,7 @@ export function UserProvider({
 
   return (
     <UserContext.Provider
-      value={{ user, users, isLoggedIn, authenticate, logout, addUser, deactivateUser }}
+      value={{ user, users, isLoggedIn, authenticate, logout, addUser, updateUser, deactivateUser }}
     >
       {children}
     </UserContext.Provider>
