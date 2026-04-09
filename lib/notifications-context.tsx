@@ -38,6 +38,8 @@ interface NotificationsContextValue {
   refresh: () => Promise<void>;
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteNotification: (id: number) => Promise<void>;
+  clearAll: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue>({
@@ -49,6 +51,8 @@ const NotificationsContext = createContext<NotificationsContextValue>({
   refresh: async () => {},
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  deleteNotification: async () => {},
+  clearAll: async () => {},
 });
 
 /* ─── Sonido de notificación (Web Audio API — sin archivo externo) ────── */
@@ -62,12 +66,10 @@ function playNotificationSound() {
     oscillator.connect(gain);
     gain.connect(ctx.destination);
 
-    // Tono tipo "ding-dong"
     oscillator.frequency.setValueAtTime(830, ctx.currentTime);
     oscillator.frequency.setValueAtTime(1000, ctx.currentTime + 0.1);
     oscillator.frequency.setValueAtTime(830, ctx.currentTime + 0.2);
 
-    // Volumen suave con fade-out
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
 
@@ -75,7 +77,6 @@ function playNotificationSound() {
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + 0.5);
 
-    // Limpiar contexto de audio después
     oscillator.onended = () => ctx.close();
   } catch (err) {
     console.warn("Could not play notification sound", err);
@@ -93,9 +94,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // IDs conocidos para detectar notificaciones nuevas
   const knownIdsRef = useRef<Set<number>>(new Set());
-  // Evitar que suene en la primera carga de la página
   const isFirstLoadRef = useRef(true);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -137,13 +136,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         team_name: row.teams?.name ?? "",
       }));
 
-      // ─── Detectar nuevas notificaciones ──────────────────────
       if (isFirstLoadRef.current) {
-        // Primera carga: solo guardar IDs, NO sonar
         knownIdsRef.current = new Set(mapped.map((n) => n.id));
         isFirstLoadRef.current = false;
       } else {
-        // Cargas siguientes: buscar IDs que no existían antes
         const newNotifications = mapped.filter(
           (n) => !knownIdsRef.current.has(n.id) && !n.is_read
         );
@@ -152,7 +148,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           playNotificationSound();
         }
 
-        // Actualizar IDs conocidos
         knownIdsRef.current = new Set(mapped.map((n) => n.id));
       }
 
@@ -200,7 +195,42 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }, [notifications, supabase]);
 
-  // Polling cada 30 segundos
+  const deleteNotification = useCallback(
+    async (id: number) => {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error deleting notification", error);
+        return;
+      }
+
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      knownIdsRef.current.delete(id);
+    },
+    [supabase]
+  );
+
+  const clearAll = useCallback(async () => {
+    const ids = notifications.map((n) => n.id);
+    if (ids.length === 0) return;
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .in("id", ids);
+
+    if (error) {
+      console.error("Error clearing all notifications", error);
+      return;
+    }
+
+    setNotifications([]);
+    knownIdsRef.current.clear();
+  }, [notifications, supabase]);
+
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -220,6 +250,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         refresh,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
+        clearAll,
       }}
     >
       {children}
