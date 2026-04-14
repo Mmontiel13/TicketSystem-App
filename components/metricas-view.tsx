@@ -24,12 +24,19 @@ import { ResponsiveIcon } from "@/components/responsive-icon";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Fetch data from database ────────────────────────────────────────────────────
-async function fetchTicketsMetrics(supabase: SupabaseClient, teamId: number) {
+function applyAreaFilter(query: any, isAdmin: boolean, teamId?: number) {
+  return isAdmin || teamId == null ? query : query.eq("team_id", teamId);
+}
+
+async function fetchTicketsMetrics(supabase: SupabaseClient, isAdmin: boolean, teamId?: number) {
   try {
-    const { data, error } = await supabase
-      .from("tickets")
-      .select("id, status")
-      .eq("team_id", teamId);
+    const query = applyAreaFilter(
+      supabase.from("tickets").select("id, status"),
+      isAdmin,
+      teamId
+    );
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching tickets:", error.message);
@@ -46,12 +53,15 @@ async function fetchTicketsMetrics(supabase: SupabaseClient, teamId: number) {
   }
 }
 
-async function fetchUsersMetrics(supabase: SupabaseClient, teamId: number) {
+async function fetchUsersMetrics(supabase: SupabaseClient, isAdmin: boolean, teamId?: number) {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, is_active")
-      .eq("team_id", teamId);
+    const query = applyAreaFilter(
+      supabase.from("users").select("id, is_active"),
+      isAdmin,
+      teamId
+    );
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching users:", error.message);
@@ -69,7 +79,8 @@ async function fetchUsersMetrics(supabase: SupabaseClient, teamId: number) {
 // ─── Generate chart data from database ───────────────────────────────────────
 async function generateChartDataFromDB(
   supabase: SupabaseClient,
-  teamId: number,
+  isAdmin: boolean,
+  teamId: number | undefined,
   days: number,
   dataTab: "Tickets" | "Usuarios"
 ) {
@@ -86,10 +97,11 @@ async function generateChartDataFromDB(
 
   try {
     if (dataTab === "Tickets") {
-      const { data: tickets, error } = await supabase
-        .from("tickets")
-        .select("id, status, arrival_time")
-        .eq("team_id", teamId);
+      const { data: tickets, error } = await applyAreaFilter(
+        supabase.from("tickets").select("id, status, arrival_time"),
+        isAdmin,
+        teamId
+      );
 
       if (error) {
         console.error("Error fetching tickets for chart:", error.message);
@@ -120,10 +132,11 @@ async function generateChartDataFromDB(
         });
       });
     } else {
-      const { data: users, error } = await supabase
-        .from("users")
-        .select("id, is_active, created_at")
-        .eq("team_id", teamId);
+      const { data: users, error } = await applyAreaFilter(
+        supabase.from("users").select("id, is_active, created_at"),
+        isAdmin,
+        teamId
+      );
 
       if (error) {
         console.error("Error fetching users for chart:", error.message);
@@ -272,16 +285,23 @@ export function MetricasView() {
           return;
         }
 
-        const currentTeamId = Number(userData.team_id);
+        const isAdmin = user.role === "admin";
+        const currentTeamId = isAdmin ? undefined : Number(userData.team_id);
 
-        const ticketsMetrics = await fetchTicketsMetrics(supabase, currentTeamId);
+        const ticketsMetrics = await fetchTicketsMetrics(supabase, isAdmin, currentTeamId);
         setTotalTickets(ticketsMetrics.total);
         setPendingTickets(ticketsMetrics.pending);
 
-        const usersCount = await fetchUsersMetrics(supabase, currentTeamId);
+        const usersCount = await fetchUsersMetrics(supabase, isAdmin, currentTeamId);
         setTotalUsers(usersCount);
 
-        const chartDataResult = await generateChartDataFromDB(supabase, currentTeamId, range, dataTab);
+        const chartDataResult = await generateChartDataFromDB(
+          supabase,
+          isAdmin,
+          currentTeamId,
+          range,
+          dataTab
+        );
         setChartData(chartDataResult);
       } catch (err) {
         console.error("Error loading metrics:", err);
@@ -372,11 +392,11 @@ export function MetricasView() {
         </div>
 
         {/* Chart card */}
-        <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 min-h-[350px] sm:min-h-[450px]">
+        <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 min-h-87.5 sm:min-h-112.5">
           {/* Header section - responsive */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-foreground font-semibold text-sm sm:text-base break-words">
+              <h2 className="text-foreground font-semibold text-sm sm:text-base wrap-break-word">
                 {dataTab === "Tickets" 
                   ? "Total de Tickets Pendientes" 
                   : "Total de Usuarios Registrados"}
