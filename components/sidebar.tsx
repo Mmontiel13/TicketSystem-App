@@ -70,7 +70,12 @@ import { useNotifications } from "@/lib/notifications-context";
 /* ─── Nav config ─────────────────────────────────────────────────────────── */
 
 const NAV_PRINCIPAL_ALL = [
-  { label: "Tickets", icon: CheckSquare, href: "/dashboard/tickets", adminOnly: false },
+  { 
+    label: "Tickets",
+    icon: CheckSquare,
+    href: "/dashboard/tickets",
+    adminOnly: false 
+  },
   {
     label: "Metricas",
     icon: BarChart2,
@@ -155,14 +160,12 @@ function SidebarLink({
   icon: Icon,
   label,
   active,
-  badge,
   onClick,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   active?: boolean;
-  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -181,11 +184,6 @@ function SidebarLink({
         className={active ? "text-foreground" : "text-muted-foreground"}
       />
       <span className="flex-1">{label}</span>
-      {badge != null && badge > 0 && (
-        <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
-          {badge > 99 ? "99+" : badge}
-        </span>
-      )}
     </Link>
   );
 }
@@ -292,7 +290,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                 icon={item.icon}
                 label={item.label}
                 active={pathname === item.href}
-                badge={getBadge(item.href)}
                 onClick={onNavClick}
               />
             ))}
@@ -362,14 +359,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
                 >
                   Editar Perfil
                 </button>
-                {user.role === "admin" && (
-                  <button
-                    onClick={() => setNotificationsOpen(true)}
-                    className="text-left px-2 py-1 text-sm text-foreground hover:bg-accent rounded"
-                  >
-                    Notificaciones
-                  </button>
-                )}
+                
               </div>
             </HoverCardContent>
           </HoverCard>
