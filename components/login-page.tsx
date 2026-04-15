@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, Users, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
+import { useTheme } from "next-themes";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -258,9 +259,20 @@ export default function LoginPage() {
 
 /** Asiatech logo from public assets */
 function AsiatechLogo() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const logoSrc = resolvedTheme === 'dark' ? '/logo.svg' : '/logodark.svg';
+
   return (
     <Image
-      src="/logo.svg"
+      src={logoSrc}
       alt="asiatech logo"
       width={180}
       height={40}

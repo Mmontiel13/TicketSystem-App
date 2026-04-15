@@ -41,15 +41,29 @@ import {
   Cat,
   Menu,
   ChevronLeft,
+  VenetianMask,
+  Volleyball,
+  Donut,
+  Skull,
+  HandMetal,
+  Sticker,
+  Biohazard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveIcon } from "@/components/responsive-icon";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
 export type KanbanColumn = "Tareas" | "En proceso" | "Pendiente" | "Terminada";
-export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "Users" | "Fish" | "Cat";
+export type IconUserId = "Ghost" | "Rose" | "Rabbit" | "skulls" | "Fish" | "Cat" | "Users" | "VenetianMask" | "Volleyball" | "Donut" | "Hand-metal" | "Sticker" | "Biohazard";
 
 export interface KanbanMember {
   id: number;
@@ -76,6 +90,12 @@ export const ICON_MAP: Record<IconUserId, React.ElementType> = {
   Users: UserCircle,
   Fish,
   Cat,
+  VenetianMask,
+  Volleyball,
+  Donut,
+  "Hand-metal": HandMetal,
+  Sticker,
+  Biohazard,
 };
 
 /* ─── Column config ─────────────────────────────────────────────────────── */
@@ -128,11 +148,13 @@ function TaskCardContent({
   onDelete?: (taskId: string) => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
   const assignedMembers = members.filter((m) => task.assigned_to.includes(m.id));
-  const descSnippet = task.description.length > 60 ? task.description.slice(0, 60) + "..." : task.description;
+  const isLongDesc = task.description.length > 100;
 
   return (
+    <>
     <div
       className={cn(
         "rounded-lg border border-border bg-card p-2 sm:p-3 flex flex-col gap-1.5 sm:gap-2 select-none",
@@ -186,7 +208,17 @@ function TaskCardContent({
 
       <div className="flex flex-col gap-1">
         <p className="text-foreground font-medium text-[10px] sm:text-xs line-clamp-2">{task.title}</p>
-        <p className="text-foreground/70 text-[9px] sm:text-[11px] leading-relaxed line-clamp-2">{descSnippet}</p>
+        <div className="flex flex-col gap-1">
+          <p className="text-foreground/70 text-[9px] sm:text-[11px] leading-relaxed line-clamp-3">{task.description}</p>
+          {isLongDesc && (
+            <button
+              onClick={() => setShowFullDesc(true)}
+              className="text-[9px] sm:text-[10px] hover:text-cyan-600 transition-colors self-start"
+            >
+              Ver más
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 text-[8px] sm:text-[10px]">
@@ -229,6 +261,23 @@ function TaskCardContent({
         </div>
       )}
     </div>
+
+    <Dialog open={showFullDesc} onOpenChange={setShowFullDesc}>
+      <DialogContent 
+        className="max-w-md pointer-events-auto"
+        onPointerDown={(e) => e.stopPropagation()}
+        onDragStart={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>{task.title}</DialogTitle>
+          <DialogDescription>Descripción completa</DialogDescription>
+        </DialogHeader>
+        <div className="whitespace-pre-wrap text-sm text-foreground">
+          {task.description}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -267,11 +316,10 @@ function SortableTaskCard({
       {...listeners}
       layout
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
+      animate={{ opacity: isDragging ? 1 : 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.18 }}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
+      
     >
       <TaskCardContent
         task={task}

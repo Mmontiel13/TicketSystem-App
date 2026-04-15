@@ -27,6 +27,21 @@ import {
   LayoutGrid,
   UserCircle,
   PlusCircle,
+  BadgeDollarSign,
+  Computer,
+  ShoppingCart,
+  BookUser,
+  Clapperboard,
+  Car,
+  EthernetPort,
+  Siren,
+  Scale,
+  ConciergeBell,
+  Calculator,
+  Trophy,
+  PackageOpen,
+  SolarPanel,
+  HelpCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -39,6 +54,28 @@ import {
 import { CreateTicketModal } from "@/components/create-ticket-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
+
+export const TEAM_ICONS = [
+  { id: "BadgeDollarSign", icon: BadgeDollarSign },
+  { id: "Computer", icon: Computer },
+  { id: "ShoppingCart", icon: ShoppingCart },
+  { id: "BookUser", icon: BookUser },
+  { id: "Clapperboard", icon: Clapperboard },
+  { id: "Car", icon: Car },
+  { id: "EthernetPort", icon: EthernetPort },
+  { id: "Siren", icon: Siren },
+  { id: "Scale", icon: Scale },
+  { id: "ConciergeBell", icon: ConciergeBell },
+  { id: "Calculator", icon: Calculator },
+  { id: "Trophy", icon: Trophy },
+  { id: "PackageOpen", icon: PackageOpen },
+  { id: "SolarPanel", icon: SolarPanel },
+] as const;
+
+export function getTeamIcon(iconId: string) {
+  const iconObj = TEAM_ICONS.find(t => t.id === iconId);
+  return iconObj ? iconObj.icon : HelpCircle;
+}
 
 /* ─── Client-only time ──────────────────────────────────────────────────── */
 
@@ -275,6 +312,7 @@ function SortableRow({
         <PriorityBadge
           priority={ticket.priority}
           expired={expired}
+          status={ticket.status}
         />
       </td>
 
@@ -388,6 +426,7 @@ function MobileTicketCard({
         <PriorityBadge
           priority={ticket.priority}
           expired={expired}
+          status={ticket.status}
         />
       </div>
 
@@ -880,7 +919,7 @@ export function TicketsView() {
 
       {/* Desktop table (client-only to avoid dnd-kit hydration mismatches) */}
       <div className="hidden md:block flex-1 px-8 overflow-auto">
-        <div className="rounded-xl border border-border overflow-hidden relative">
+        <div className="rounded-xl border border-border overflow-visible relative">
           {mounted ? (
             <DndContext
               sensors={sensors}

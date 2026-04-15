@@ -110,6 +110,7 @@ export function RemainingBar({ arrivalTime, maxWaitMinutes, status }: RemainingB
 interface PriorityBadgeProps {
   priority: TicketPriority;
   expired: boolean;
+  status?: TicketStatus;
 }
 
 /* Clases Tailwind en lugar de hex hardcoded — se adaptan a dark/light */
@@ -120,7 +121,21 @@ const PRIORITY_DOT_CLASS: Record<TicketPriority, string> = {
   Vencido: "bg-muted-foreground",
 };
 
-export function PriorityBadge({ priority, expired }: PriorityBadgeProps) {
+export function PriorityBadge({ priority, expired, status }: PriorityBadgeProps) {
+  if (status === 'Terminada') {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border",
+          "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400"
+        )}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+        Completado
+      </span>
+    );
+  }
+
   if (expired) {
     return (
       <span
