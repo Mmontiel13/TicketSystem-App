@@ -1,14 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSensor, useSensors, PointerSensor, type DragStartEvent, type DragOverEvent, type DragEndEvent } from "@dnd-kit/core";
+import {
+  useSensor,
+  useSensors,
+  PointerSensor,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-import type { KanbanColumn, KanbanMember, KanbanTask, IconUserId } from "./kanban.types";
+import type {
+  KanbanColumn,
+  KanbanMember,
+  KanbanTask,
+  IconUserId,
+} from "./kanban.types";
 import { COLUMNS } from "./kanban.config";
 
 export function useKanbanBoard() {
@@ -30,19 +42,12 @@ export function useKanbanBoard() {
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<string | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   const taskById = useRef<Map<string, KanbanTask>>(new Map());
   tasks.forEach((t) => taskById.current.set(t.id, t));
-
-  const onEdit = (task: KanbanTask) => {
-    setEditTask(task);
-    setShowCreate(true);
-  };
-
-  const onDelete = (taskId: string) => {
-    setConfirmDeleteTask(taskId);
-  };
 
   async function fetchTeamData() {
     setLoading(true);
@@ -155,7 +160,9 @@ export function useKanbanBoard() {
     const activeTaskLocal = tasks.find((t) => t.id === activeId);
     if (!activeTaskLocal || activeTaskLocal.status === targetColumn) return;
 
-    setTasks((prev) => prev.map((t) => (t.id === activeId ? { ...t, status: targetColumn } : t)));
+    setTasks((prev) =>
+      prev.map((t) => (t.id === activeId ? { ...t, status: targetColumn } : t))
+    );
   }
 
   async function onDragEnd(event: DragEndEvent) {
@@ -197,7 +204,9 @@ export function useKanbanBoard() {
         setTasks((prev) => {
           const activeIndex = prev.findIndex((t) => t.id === activeId);
           const overIndex = prev.findIndex((t) => t.id === overId);
-          if (activeIndex !== -1 && overIndex !== -1) return arrayMove(prev, activeIndex, overIndex);
+          if (activeIndex !== -1 && overIndex !== -1) {
+            return arrayMove(prev, activeIndex, overIndex);
+          }
           return prev;
         });
       }
@@ -287,6 +296,39 @@ export function useKanbanBoard() {
     setConfirmDeleteTask(null);
   }
 
+  // ✅ NUEVO: mover tarea por botones (móvil)
+  async function moveTaskToStatus(taskId: string, nextStatus: KanbanColumn) {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic UI
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: nextStatus } : t))
+    );
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: nextStatus })
+      .eq("id", task.dbId);
+
+    if (error) {
+      console.error("Error updating task status (buttons):", error);
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo cambiar el estado de la tarea.",
+        variant: "destructive",
+      });
+      // rollback by refetch
+      if (myTeamId) await fetchTasks(myTeamId);
+      return;
+    }
+
+    toast({
+      title: "Estado actualizado",
+      description: `Tarea movida a ${nextStatus}`,
+    });
+  }
+
   return {
     // data
     tasks,
@@ -309,11 +351,12 @@ export function useKanbanBoard() {
     confirmDeleteTaskAction,
 
     // actions
-    onEdit,
-    onDelete,
-    handleDeleteTask,
     handleAddTask,
     handleUpdateTask,
+    handleDeleteTask,
+
+    // ✅ new action for mobile buttons
+    moveTaskToStatus,
 
     // dnd
     sensors,

@@ -61,6 +61,10 @@
   --chart-3: oklch(0.62 0.10 250);  /* blue */
   --chart-4: oklch(0.80 0.14 85);   /* yellow-green */
   --chart-5: oklch(0.74 0.14 15);   /* red/pink */
+
+  --kanban-card-h: 190px; /* estimado, ajusta a tu card real */
+  --kanban-gap: 12px;
+
 }
 
 @theme inline {
@@ -179,3 +183,11 @@ html.light {
     color-scheme: light;
   }
 }
+
+@media (min-width: 1024px) {
+  :root {
+    --kanban-card-h: 210px;
+    --kanban-gap: 12px;
+  }
+}
+

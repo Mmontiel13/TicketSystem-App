@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
 import { AnimatePresence } from "framer-motion";
 
@@ -13,9 +14,20 @@ import { KanbanColumnPanel } from "@/components/kanban/KanbanColumnPanel";
 import { CreateTaskSidebar } from "@/components/kanban/CreateTaskSidebar";
 import { TaskCardContent } from "@/components/kanban/TaskCardContent";
 import { useKanbanBoard } from "@/components/kanban/useKanbanBoard";
+import type { KanbanColumn } from "@/components/kanban/kanban.types";
 
 export function KanbanView() {
   const kb = useKanbanBoard();
+  const [activeMobileColumn, setActiveMobileColumn] =
+    useState<KanbanColumn>("Tareas");
+
+  const tasksByColumn = useMemo(() => {
+    const map = new Map<KanbanColumn, typeof kb.tasks>();
+    for (const col of COLUMNS) {
+      map.set(col.id, kb.tasks.filter((t) => t.status === col.id));
+    }
+    return map;
+  }, [kb.tasks]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
@@ -26,7 +38,10 @@ export function KanbanView() {
 
         <button
           onClick={() => kb.setShowCreate(true)}
-          className={cn(headerButtonClass, "absolute right-3 sm:right-4 md:right-8 sm:relative sm:right-auto")}
+          className={cn(
+            headerButtonClass,
+            "absolute right-3 sm:right-4 md:right-8 sm:relative sm:right-auto"
+          )}
           type="button"
         >
           <ResponsiveIcon icon={Plus} smSize={12} mdSize={14} />
@@ -52,12 +67,61 @@ export function KanbanView() {
             onDragOver={kb.onDragOver}
             onDragEnd={kb.onDragEnd}
           >
-            <div className="flex gap-2 sm:gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2">
+            {/* ✅ Tabs móviles SIN SCROLL: grid 2x2 */}
+            <div className="sm:hidden grid grid-cols-2 gap-2 pb-2">
+              {COLUMNS.map((col) => {
+                const isActive = activeMobileColumn === col.id;
+                const count = (tasksByColumn.get(col.id) ?? []).length;
+
+                return (
+                  <button
+                    key={col.id}
+                    type="button"
+                    onClick={() => setActiveMobileColumn(col.id)}
+                    className={cn(
+                      "rounded-xl border px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors",
+                      isActive
+                        ? "bg-accent text-foreground border-border"
+                        : "bg-card text-muted-foreground border-border hover:bg-accent/50 hover:text-foreground"
+                    )}
+                  >
+                    <span className="truncate">{col.id}</span>
+                    <span
+                      className={cn(
+                        "tabular-nums text-xs px-2 py-0.5 rounded-full shrink-0",
+                        isActive ? "bg-background/60" : "bg-muted"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mobile: scroll vertical OK */}
+            <div className="sm:hidden flex-1 min-h-0 overflow-y-auto">
+              {COLUMNS.filter((c) => c.id === activeMobileColumn).map((col) => (
+                <KanbanColumnPanel
+                  key={col.id}
+                  config={col}
+                  tasks={tasksByColumn.get(col.id) ?? []}
+                  members={kb.members}
+                  isOver={kb.overColumn === col.id}
+                  onEditTask={(task) => kb.setEditTask(task)}
+                  onDeleteTask={kb.handleDeleteTask}
+                  onMoveStatus={kb.moveTaskToStatus}
+                />
+              ))}
+            </div>
+
+            {/* Desktop */}
+            <div className="hidden sm:flex gap-2 sm:gap-3 flex-1 overflow-x-auto overflow-y-hidden pb-2 pr-2">
               {COLUMNS.map((col) => (
                 <KanbanColumnPanel
                   key={col.id}
                   config={col}
-                  tasks={kb.tasks.filter((t) => t.status === col.id)}
+                  tasks={tasksByColumn.get(col.id) ?? []}
                   members={kb.members}
                   isOver={kb.overColumn === col.id}
                   onEditTask={(task) => kb.setEditTask(task)}
