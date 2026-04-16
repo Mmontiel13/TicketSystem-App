@@ -5,7 +5,8 @@ import { X, Plus, Monitor, Printer, Wifi, HelpCircle, UserCircle, Users, Briefca
 import { cn } from "@/lib/utils";
 import { ResponsiveIcon } from "@/components/responsive-icon";
 import { TicketType } from "@/lib/mock-tickets";
-import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
+import { ICON_MAP } from "@/components/kanban/kanban.config";
+import type { IconUserId } from "@/components/kanban/kanban.types";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
