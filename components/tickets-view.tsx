@@ -53,7 +53,8 @@ import {
 } from "@/components/ticket-cells";
 import { CreateTicketModal } from "@/components/create-ticket-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
-import { ICON_MAP, type IconUserId } from "@/components/kanban-view";
+import { ICON_MAP } from "@/components/kanban/kanban.config";
+import type { IconUserId } from "@/components/kanban/kanban.types";
 
 export const TEAM_ICONS = [
   { id: "BadgeDollarSign", icon: BadgeDollarSign },
