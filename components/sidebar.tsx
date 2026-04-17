@@ -64,6 +64,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useUser, type IconUserId } from "@/lib/user-context";
 import { useNotifications } from "@/lib/notifications-context";
 
@@ -270,13 +271,13 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center justify-center px-5 py-5 border-b border-sidebar-border text-foreground">
+      {/* Logo - h-16 matches main header height */}
+      <div className="h-16 flex items-center justify-center px-5 border-b border-border/50 text-foreground">
         <AsiatechMark isDark={isDark} />
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col">
         {/* Principal */}
         <div>
           <p className="px-3 mb-2 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
@@ -294,6 +295,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               />
             ))}
           </div>
+        </div>
+
+        {/* Separator with consistent spacing */}
+        <div className="py-5">
+          <Separator className="bg-border/50 h-[1px]" />
         </div>
 
         {/* General */}
@@ -334,7 +340,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
 
       {/* ── User profile footer ────────────────────────────────────────── */}
-      <div className="px-4 py-4 border-t border-sidebar-border">
+      <div className="px-4 py-4 border-t border-border/50">
         <div className="flex items-center gap-3">
           {/* Perfil con HoverCard (Edit Profile / Notifications) */}
           <HoverCard>
@@ -560,7 +566,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Desktop: fixed sidebar ── */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[230px] flex-col border-r border-sidebar-border bg-sidebar z-30">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[230px] flex-col border-r border-border/50 bg-sidebar z-30">
         <SidebarContent />
       </aside>
 

@@ -349,8 +349,8 @@ export function MetricasView() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-center sm:justify-start px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0">
+      {/* Header - h-16 matches sidebar logo height */}
+      <div className="h-16 flex items-center justify-center sm:justify-start px-3 sm:px-4 md:px-8 border-b border-border/50 shrink-0">
         <h1 className="text-foreground text-base sm:text-lg md:text-xl font-semibold text-center sm:text-left">Métricas</h1>
       </div>
 
