@@ -33,6 +33,7 @@ import {
   Biohazard,
   MoreVertical,
   User,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -45,7 +46,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -70,6 +70,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useUser, type IconUserId } from "@/lib/user-context";
 import { useNotifications } from "@/lib/notifications-context";
+import { UserAvatarEditor } from "@/components/user-avatar-editor";
 
 /* ─── Nav config ─────────────────────────────────────────────────────────── */
 
@@ -103,6 +104,7 @@ const NAV_PRINCIPAL_ALL = [
 const NAV_GENERAL_LINKS = [
   { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban" },
   { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda" },
+  { label: "Configuración", icon: Settings, href: "/dashboard/configuracion" },
 ];
 
 /* ─── User icons (expandidos de feat branch) ─────────────────────────────── */
@@ -197,7 +199,7 @@ function SidebarLink({
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, updateUser } = useUser();
+  const { user } = useUser();
   const { resolvedTheme, setTheme } = useTheme();
   const {
     notifications,
@@ -212,8 +214,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [selectedIcon, setSelectedIcon] = useState<IconUserId | null>(null);
-  const [confirmEditOpen, setConfirmEditOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -226,32 +226,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   function getBadge(href: string): number | undefined {
     if (href === "/dashboard/notificaciones") return unreadCount;
     return undefined;
-  }
-
-  /* ── Cambio de icono ── */
-  function handleIconSelect(iconId: IconUserId) {
-    setSelectedIcon(iconId);
-    setConfirmEditOpen(true);
-  }
-
-  async function confirmIconUpdate() {
-    if (!selectedIcon) return;
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("users")
-        .update({ avatar_icon: selectedIcon })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
-      updateUser(user.id, { iconId: selectedIcon });
-      setConfirmEditOpen(false);
-      setEditProfileOpen(false);
-      setSelectedIcon(null);
-    } catch (error) {
-      console.error("Error updating avatar:", error);
-    }
   }
 
   /* ── Logout con confirmación ── */
@@ -497,68 +471,17 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               Cambia tu icono de avatar.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-2">Selecciona un icono:</p>
-            <div className="grid grid-cols-4 gap-2">
-              {USER_ICONS.map(({ id, icon: IconComponent }) => (
-                <button
-                  key={id}
-                  className={cn(
-                    "p-3 border rounded-lg hover:bg-accent flex items-center justify-center transition-colors",
-                    user.iconId === id
-                      ? "border-primary bg-primary/10"
-                      : "border-border"
-                  )}
-                  onClick={() => handleIconSelect(id as IconUserId)}
-                >
-                  <IconComponent size={20} className="text-foreground" />
-                </button>
-              ))}
-            </div>
-          </div>
+          <UserAvatarEditor showTitle={false} />
           <DialogFooter>
             <button
               onClick={() => setEditProfileOpen(false)}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              Cancelar
+              Cerrar
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ── Confirmación de cambio de icono ── */}
-      <AlertDialog open={confirmEditOpen} onOpenChange={setConfirmEditOpen}>
-        <AlertDialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground">
-              Confirmar cambio de avatar
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              ¿Estás seguro de que deseas cambiar tu avatar a este icono?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex justify-center py-4">
-            {selectedIcon && (
-              <div className="p-4 border border-border rounded-lg">
-                {(() => {
-                  const IconComponent = userIconById(selectedIcon);
-                  return <IconComponent size={32} className="text-foreground" />;
-                })()}
-              </div>
-            )}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmIconUpdate}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
