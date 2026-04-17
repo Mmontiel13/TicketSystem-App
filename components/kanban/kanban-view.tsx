@@ -31,7 +31,7 @@ export function KanbanView() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <header className="relative flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0 gap-2">
+      <header className="h-16 relative flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 border-b border-border/50 shrink-0 gap-2">
         <h1 className="text-foreground font-semibold text-base sm:text-lg md:text-xl text-center sm:text-left">
           Kanban
         </h1>

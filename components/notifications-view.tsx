@@ -184,8 +184,8 @@ export function NotificationsView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="relative flex items-center justify-center sm:justify-between px-4 md:px-8 py-4 border-b border-border">
+      {/* Header - h-16 matches sidebar logo height */}
+      <div className="h-16 relative flex items-center justify-center sm:justify-between px-4 md:px-8 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Bell size={20} className="text-foreground hidden sm:block" />
           <h1 className="text-foreground text-xl font-semibold text-center sm:text-left">

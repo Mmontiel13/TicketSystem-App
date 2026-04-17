@@ -31,6 +31,9 @@ import {
   HandMetal,
   Sticker,
   Biohazard,
+  MoreVertical,
+  User,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -43,13 +46,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -64,8 +67,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useUser, type IconUserId } from "@/lib/user-context";
 import { useNotifications } from "@/lib/notifications-context";
+import { UserAvatarEditor } from "@/components/user-avatar-editor";
 
 /* ─── Nav config ─────────────────────────────────────────────────────────── */
 
@@ -99,6 +104,7 @@ const NAV_PRINCIPAL_ALL = [
 const NAV_GENERAL_LINKS = [
   { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban" },
   { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda" },
+  { label: "Configuración", icon: Settings, href: "/dashboard/configuracion" },
 ];
 
 /* ─── User icons (expandidos de feat branch) ─────────────────────────────── */
@@ -193,7 +199,7 @@ function SidebarLink({
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, updateUser } = useUser();
+  const { user } = useUser();
   const { resolvedTheme, setTheme } = useTheme();
   const {
     notifications,
@@ -208,8 +214,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [selectedIcon, setSelectedIcon] = useState<IconUserId | null>(null);
-  const [confirmEditOpen, setConfirmEditOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -222,32 +226,6 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   function getBadge(href: string): number | undefined {
     if (href === "/dashboard/notificaciones") return unreadCount;
     return undefined;
-  }
-
-  /* ── Cambio de icono ── */
-  function handleIconSelect(iconId: IconUserId) {
-    setSelectedIcon(iconId);
-    setConfirmEditOpen(true);
-  }
-
-  async function confirmIconUpdate() {
-    if (!selectedIcon) return;
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("users")
-        .update({ avatar_icon: selectedIcon })
-        .eq("id", user.id);
-
-      if (error) throw error;
-
-      updateUser(user.id, { iconId: selectedIcon });
-      setConfirmEditOpen(false);
-      setEditProfileOpen(false);
-      setSelectedIcon(null);
-    } catch (error) {
-      console.error("Error updating avatar:", error);
-    }
   }
 
   /* ── Logout con confirmación ── */
@@ -270,13 +248,13 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center justify-center px-5 py-5 border-b border-sidebar-border text-foreground">
+      {/* Logo - h-16 matches main header height */}
+      <div className="h-16 flex items-center justify-center px-5 border-b border-border/50 text-foreground">
         <AsiatechMark isDark={isDark} />
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-6">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col">
         {/* Principal */}
         <div>
           <p className="px-3 mb-2 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
@@ -294,6 +272,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               />
             ))}
           </div>
+        </div>
+
+        {/* Separator with consistent spacing */}
+        <div className="py-5">
+          <Separator className="bg-border/50 h-[1px]" />
         </div>
 
         {/* General */}
@@ -334,37 +317,21 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
       </nav>
 
       {/* ── User profile footer ────────────────────────────────────────── */}
-      <div className="px-4 py-4 border-t border-sidebar-border">
+      <div className="px-4 py-4 border-t border-border/50">
         <div className="flex items-center gap-3">
-          {/* Perfil con HoverCard (Edit Profile / Notifications) */}
-          <HoverCard>
-            <HoverCardTrigger asChild>
-              <div className="flex items-center gap-3 flex-1 cursor-pointer">
-                {(() => {
-                  const ProfileIcon = userIconById(user.iconId || "Users");
-                  return (
-                    <ProfileIcon size={32} className="text-muted-foreground shrink-0" />
-                  );
-                })()}
-                <span className="text-sm text-muted-foreground flex-1">
-                  {user.name || user.email}
-                </span>
-              </div>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-48 p-2">
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setEditProfileOpen(true)}
-                  className="text-left px-2 py-1 text-sm text-foreground hover:bg-accent rounded"
-                >
-                  Editar Perfil
-                </button>
-                
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-
-          {/* ── Campana de notificaciones (Popover) ── */}
+          {/* Profile with user icon and name */}
+          <div className="flex items-center gap-3 flex-1">
+            {(() => {
+              const ProfileIcon = userIconById(user.iconId || "Users");
+              return (
+                <ProfileIcon size={32} className="text-muted-foreground shrink-0" />
+              );
+            })()}
+            <span className="text-sm text-muted-foreground flex-1">
+              {user.name || user.email}
+            </span>
+          </div>
+            {/* ── Campana de notificaciones (Popover) ── */}
           {user.role === "admin" && (
             <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <PopoverTrigger asChild>
@@ -442,112 +409,79 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               </PopoverContent>
             </Popover>
           )}
-
-          {/* ── Logout con confirmación (AlertDialog) ── */}
-          <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-            <AlertDialogTrigger asChild>
+          {/* ── Three-dots dropdown menu ── */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
-                className="text-zinc-500 hover:text-red-400 transition-colors"
-                aria-label="Cerrar Sesión"
-                title="Cerrar Sesión"
+                className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-accent/50"
+                aria-label="Opciones de perfil"
               >
-                <LogOut size={16} />
+                <MoreVertical size={16} />
               </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-foreground">
-                  ¿Cerrar sesión?
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-muted-foreground">
-                  ¿Estás seguro de que deseas cerrar sesión?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={confirmLogout}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Cerrar sesión
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* ── Dialog para cambiar icono ── */}
-          <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-            <DialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
-              <DialogHeader>
-                <DialogTitle className="text-foreground">Editar Perfil</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Cambia tu icono de avatar.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <p className="text-sm text-muted-foreground mb-2">Selecciona un icono:</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {USER_ICONS.map(({ id, icon: IconComponent }) => (
-                    <button
-                      key={id}
-                      className={cn(
-                        "p-3 border rounded-lg hover:bg-accent flex items-center justify-center transition-colors",
-                        user.iconId === id
-                          ? "border-primary bg-primary/10"
-                          : "border-border"
-                      )}
-                      onClick={() => handleIconSelect(id as IconUserId)}
-                    >
-                      <IconComponent size={20} className="text-foreground" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <DialogFooter>
-                <button
-                  onClick={() => setEditProfileOpen(false)}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Cancelar
-                </button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* ── Confirmación de cambio de icono ── */}
-          <AlertDialog open={confirmEditOpen} onOpenChange={setConfirmEditOpen}>
-            <AlertDialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-foreground">
-                  Confirmar cambio de avatar
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-muted-foreground">
-                  ¿Estás seguro de que deseas cambiar tu avatar a este icono?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="flex justify-center py-4">
-                {selectedIcon && (
-                  <div className="p-4 border border-border rounded-lg">
-                    {(() => {
-                      const IconComponent = userIconById(selectedIcon);
-                      return <IconComponent size={32} className="text-foreground" />;
-                    })()}
-                  </div>
-                )}
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={confirmIconUpdate}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Confirmar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 z-50">
+              <DropdownMenuItem
+                onClick={() => setEditProfileOpen(true)}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <User size={14} />
+                <span>Editar Perfil</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setLogoutOpen(true)}
+                className="flex items-center gap-2 cursor-pointer text-red-400 hover:text-red-400"
+              >
+                <LogOut size={14} />
+                <span>Cerrar Sesión</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      {/* ── Logout con confirmación (AlertDialog) ── */}
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              ¿Cerrar sesión?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              ¿Estás seguro de que deseas cerrar sesión?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLogout}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cerrar sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Dialog para cambiar icono ── */}
+      <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+        <DialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Editar Perfil</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Cambia tu icono de avatar.
+            </DialogDescription>
+          </DialogHeader>
+          <UserAvatarEditor showTitle={false} />
+          <DialogFooter>
+            <button
+              onClick={() => setEditProfileOpen(false)}
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cerrar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -560,7 +494,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Desktop: fixed sidebar ── */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[230px] flex-col border-r border-sidebar-border bg-sidebar z-30">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-[230px] flex-col border-r border-border/50 bg-sidebar z-30">
         <SidebarContent />
       </aside>
 

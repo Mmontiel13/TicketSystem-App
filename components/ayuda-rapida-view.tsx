@@ -20,10 +20,10 @@ const HELP_CARDS = [
     id: "cuenta",
     title: "Mi Cuenta",
     icon: UserCircle,
-    description: "Gestiona tu perfil, contraseña y preferencias personales.",
+    description: "Cambia tu Avatar o Icono.",
     guide: [
-      "Haz clic en tu avatar en la esquina inferior izquierda",
-      "Selecciona 'Mi Cuenta' del menú",
+      "Manten el mouse en tu avatar en la esquina inferior izquierda",
+      "Selecciona 'Editar Perfil' en el menú desplegable",
       "Edita tu información personal o avatar",
       "Guarda los cambios para actualizar tu perfil",
     ],
@@ -37,9 +37,9 @@ const HELP_CARDS = [
     guide: [
       "Ve a la sección de Tickets desde el menú principal",
       "Haz clic en 'Crear nuevo' para abrir el formulario",
-      "Completa descripción, tipo, prioridad y asigna a miembros",
-      "Haz clic en 'Crear' para enviar el ticket",
-      "Visualiza el estado en tiempo real en la tabla",
+      "Completa descripción, tipo, prioridad y asigna un miembro afectado",
+      "Haz clic en 'Agregar' para enviar el ticket",
+      "Visualiza el estado de tu ticket y sera atendido segun la disponibilidad del equipo de soporte",
     ],
     keywords: ["soporte", "problema", "reporte", "incidente", "crear", "formulario", "prioridad"],
   },
@@ -47,13 +47,11 @@ const HELP_CARDS = [
     id: "equipos",
     title: "Equipos",
     icon: Users,
-    description: "Crea y administra equipos de trabajo.",
+    description: "Como se organizan los equipos.",
     guide: [
-      "Accede a Equipos desde el menú (solo admin)",
-      "Haz clic en 'Agregar' para crear un nuevo equipo",
-      "Define el nombre e icono del equipo",
-      "Agrega miembros usando 'Agregar integrante'",
-      "Los miembros aparecerán en la lista del equipo",
+      "Los equipos de permiten organizar a los usuarios por departamentos",
+      "Son gestionados por los administradores del sistema",
+      "Si requieres un nuevo equipo, contacta con sistemas para su creación",
     ],
     keywords: ["equipo", "grupo", "miembros", "integrante", "admin", "crear"],
   },
@@ -61,13 +59,12 @@ const HELP_CARDS = [
     id: "admin",
     title: "Administración",
     icon: ActivitySquare,
-    description: "Panel administrativo para gestionar usuarios y equipos.",
+    description: "Como funciona la administración del sistema.",
     guide: [
-      "Accede a Administración (solo admin)",
-      "Crea y edita usuarios con emails únicos",
-      "Asigna roles (admin o user) según necesidad",
-      "Gestiona equipos y sus integrantes",
-      "Desactiva usuarios innecesarios en lugar de eliminar",
+      "La aplicación puede ser administrada por usuarios con rol de admin",
+      "Como usuario admin, puedes gestionar usuarios y equipos",
+      "Recibir notificaciones de nuevos tickets y cambiar el estado de los mismos",
+      "Si requieres acceso de admin, contacta con el equipo de sistemas para su asignación",
     ],
     keywords: ["admin", "administrador", "usuario", "roles", "permisos", "gestión"],
   },
@@ -78,10 +75,9 @@ const HELP_CARDS = [
     description: "Visualiza y gestiona tareas en tablero interactivo.",
     guide: [
       "Ve al Tablero Kanban desde el menú",
-      "Arrastra tareas entre columnas (Estados)",
       "Haz clic en + para crear una nueva tarea",
-      "Las tareas vacías pueden recibir arrastres",
-      "Edita o elimina tareas desde el icono de menú",
+      "Arrastra tareas entre columnas (Estados)",
+      "Agrega tareas a los miembros de tu equipo y ve su progreso",
     ],
     keywords: ["kanban", "tablero", "tarea", "arrastrar", "columna", "estado"],
   },
@@ -93,9 +89,7 @@ const HELP_CARDS = [
     guide: [
       "Esta sección contiene ayuda general del sistema",
       "Usa la búsqueda para encontrar temas específicos",
-      "Consulta la 'Política de privacidad' en el pie",
-      "Para soporte técnico, contacta al equipo de Sistemas",
-      "Reporta problemas o sugerencias al administrador",
+      "Reporta problemas o sugerencias al administrador puedes hacerlo levantando un ticket o contactando directamente al equipo de sistemas",
     ],
     keywords: ["ayuda", "soporte", "problema", "privacidad", "contacto"],
   },
@@ -121,15 +115,15 @@ export function AyudaRapidaView() {
   return (
     <>
       <div className="flex flex-col h-screen bg-background text-foreground">
-        {/* Header bar */}
-        <header className="flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-b border-border shrink-0">
+        {/* Header bar - h-16 matches sidebar logo height */}
+        <header className="h-16 flex items-center justify-center sm:justify-between px-3 sm:px-4 md:px-8 border-b border-border/50 shrink-0">
           <h1 className="text-sm sm:text-base font-semibold text-foreground tracking-wide text-center sm:text-left">
             Sección de ayuda
           </h1>
         </header>
 
         {/* Main scrollable content */}
-        <main className="flex-1 flex flex-col items-center px-3 sm:px-4 md:px-8 py-6 sm:py-8 md:py-12 gap-6 sm:gap-8 md:gap-10 overflow-y-auto">
+        <main className="flex-1 flex flex-col items-center px-3 sm:px-4 md:px-8 py-6 sm:py-8 md:py-12 gap-6 sm:gap-8 md:gap-10 max-sm:overflow-y-auto">
           {/* Hero search */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -231,7 +225,7 @@ export function AyudaRapidaView() {
         </main>
 
         {/* Footer */}
-        <footer className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 md:px-8 py-3 sm:py-4 border-t border-border text-center sm:text-left shrink-0">
+        <footer className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 md:px-8 py-3 sm:py-2 border-t border-border text-center sm:text-left shrink-0">
           <p className="text-[10px] sm:text-xs text-muted-foreground">
             Un proyecto del{" "}
             <span className="font-semibold text-foreground">
@@ -298,7 +292,7 @@ export function AyudaRapidaView() {
                   </p>
                   <div className="border-t border-border pt-3 sm:pt-4">
                     <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-2 sm:mb-3">
-                      Pasos para usar esta función:
+                      Información de esta sección:
                     </h3>
                     <ol className="space-y-1.5 sm:space-y-2">
                       {selectedCard.guide.map((step, idx) => (

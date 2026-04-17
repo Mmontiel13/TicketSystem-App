@@ -76,9 +76,9 @@ export default function LoginPage() {
       {/* ─── MOBILE BRANDING HEADER (visible only on < lg) ─── */}
       <div className="lg:hidden flex items-center justify-center gap-3 py-5 border-b border-border bg-card">
         <div className="p-2 rounded-lg border border-border bg-muted/50">
-          <Ticket size={20} className="text-foreground" />
+          <Ticket size={24} className="text-foreground" />
         </div>
-        <span className="text-lg font-bold text-foreground">Ticket List</span>
+        <span className="text-lg font-bold text-foreground">Ticket System</span>
       </div>
 
       {/* ─── LEFT PANEL ─── */}
@@ -96,7 +96,7 @@ export default function LoginPage() {
         <div className="relative z-10 p-8">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Users size={16} className="text-muted-foreground" />
-            <span>Equipo de desarrolladores</span>
+            <span>Desarrollado por el Equipo de Sistemas</span>
           </div>
         </div>
 
@@ -108,15 +108,13 @@ export default function LoginPage() {
               <Ticket size={40} className="text-foreground" />
             </div>
             <span className="text-5xl font-bold text-foreground tracking-tight" style={{ fontWeight: 800 }}>
-              Ticket List
+              Ticket System
             </span>
           </div>
 
           {/* Sub-branding */}
           <div className="text-center space-y-3">
-            <p className="text-2xl font-bold text-foreground tracking-wide">
-              Sistemas 31 Pte
-            </p>
+            
             {/* Asiatech logo mark */}
             <div className="flex items-center justify-center gap-2 mt-2">
               <AsiatechLogo />
@@ -127,8 +125,7 @@ export default function LoginPage() {
         {/* Bottom notice */}
         <div className="relative z-10 p-8">
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-            Sistema de tickets de Asiatech, si requiere acceso comuníquese con
-            el equipo de sistemas&nbsp; 31pte
+            Sistema de tickets de Asiatech.
           </p>
         </div>
       </div>
@@ -143,7 +140,7 @@ export default function LoginPage() {
               Inicio de Sesión
             </h1>
             <p className="mt-2 text-sm text-muted-foreground text-pretty leading-relaxed">
-              Ingresa las credenciales proporcionadas por el equipo de sistemas
+              Ingresa las credenciales proporcionadas.
             </p>
           </div>
 
@@ -153,7 +150,7 @@ export default function LoginPage() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Email o Usuario"
+                placeholder="Email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full rounded-lg px-4 py-3 pr-11 text-sm text-foreground placeholder:text-muted-foreground border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring transition"
@@ -246,10 +243,7 @@ export default function LoginPage() {
 
           {/* Footer note */}
           <p className="mt-8 text-center text-xs text-muted-foreground leading-relaxed text-pretty">
-            Las credenciales son proporcionadas por el Área de sistemas.{" "}
-            <span className="text-foreground/70 cursor-pointer hover:text-foreground transition">
-              Solicitar una por correo
-            </span>
+            Si no tienes acceso, comunícate con el equipo de Sistemas.
           </p>
         </div>
       </div>
@@ -274,7 +268,7 @@ function AsiatechLogo() {
     <Image
       src={logoSrc}
       alt="asiatech logo"
-      width={180}
+      width={240}
       height={40}
       className="mx-auto"
     />
