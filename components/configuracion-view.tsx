@@ -190,7 +190,8 @@ export default function ConfiguracionView() {
           </div>
         </motion.div>
 
-        {/* Security Section */}
+        {/* Security Section comentado temporalmente */}
+        {/* 
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,7 +203,7 @@ export default function ConfiguracionView() {
             Seguridad
           </h2>
 
-          {/* Password Field */}
+          
           <div className="mb-4">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Contraseña
@@ -221,7 +222,8 @@ export default function ConfiguracionView() {
               </motion.button>
             </div>
           </div>
-        </motion.div>
+        </motion.div> 
+        */}
       </div>
 
       {/* Avatar Modal Dialog */}
