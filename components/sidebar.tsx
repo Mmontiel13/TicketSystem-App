@@ -81,6 +81,7 @@ const NAV_PRINCIPAL_ALL = [
     href: "/dashboard/tickets",
     adminOnly: false 
   },
+  { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban", adminOnly: false },
   {
     label: "Metricas",
     icon: BarChart2,
@@ -93,18 +94,13 @@ const NAV_PRINCIPAL_ALL = [
     href: "/dashboard/equipos",
     adminOnly: true,
   },
-  {
-    label: "Notificaciones",
-    icon: Bell,
-    href: "/dashboard/notificaciones",
-    adminOnly: true,
-  },
+  
 ];
 
 const NAV_GENERAL_LINKS = [
-  { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban" },
-  { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda" },
-  { label: "Configuración", icon: Settings, href: "/dashboard/configuracion" },
+  { label: "Notificaciones", icon: Bell, href: "/dashboard/notificaciones", adminOnly: true },
+  { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda", adminOnly: false },
+  { label: "Configuración", icon: Settings, href: "/dashboard/configuracion", adminOnly: false },
 ];
 
 /* ─── User icons (expandidos de feat branch) ─────────────────────────────── */

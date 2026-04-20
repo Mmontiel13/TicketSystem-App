@@ -2,252 +2,26 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  Ticket,
-  Users,
-  Clock,
-} from "lucide-react";
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Ticket, Users } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/user-context";
-import { ResponsiveIcon } from "@/components/responsive-icon";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
-// ─── Fetch data from database ────────────────────────────────────────────────────
-function applyAreaFilter(query: any, isAdmin: boolean, teamId?: number) {
-  return isAdmin || teamId == null ? query : query.eq("team_id", teamId);
-}
+import type { RangeKey, DataTab, MonthComparison, IssueTypeData } from "@/lib/metrics/metrics.types";
+import {
+  fetchTicketsMetrics,
+  fetchUsersMetrics,
+  generateChartDataFromDB,
+  fetchMonthComparison,
+  fetchTopIssueType,
+  fetchNewUsersThisMonth,
+} from "@/lib/metrics/metrics.service";
 
-async function fetchTicketsMetrics(supabase: SupabaseClient, isAdmin: boolean, teamId?: number) {
-  try {
-    const query = applyAreaFilter(
-      supabase.from("tickets").select("id, status"),
-      isAdmin,
-      teamId
-    );
+import { KpiCard } from "@/components/metrics/kpi-card";
+import { ChartTooltip } from "@/components/metrics/chart-tooltip";
 
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error fetching tickets:", error.message);
-      return { total: 0, pending: 0 };
-    }
-
-    const total = data?.length || 0;
-    const pending = data?.filter((t: { id: number; status: string }) => t.status === "Pendiente").length || 0;
-
-    return { total, pending };
-  } catch (err) {
-    console.error("Exception fetching tickets:", err);
-    return { total: 0, pending: 0 };
-  }
-}
-
-async function fetchUsersMetrics(supabase: SupabaseClient, isAdmin: boolean, teamId?: number) {
-  try {
-    const query = applyAreaFilter(
-      supabase.from("users").select("id, is_active"),
-      isAdmin,
-      teamId
-    );
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error fetching users:", error.message);
-      return 0;
-    }
-
-    const count = data?.filter((u: { id: number; is_active: boolean }) => u.is_active === true).length || 0;
-    return count;
-  } catch (err) {
-    console.error("Exception fetching users:", err);
-    return 0;
-  }
-}
-
-// ─── Generate chart data from database ───────────────────────────────────────
-async function generateChartDataFromDB(
-  supabase: SupabaseClient,
-  isAdmin: boolean,
-  teamId: number | undefined,
-  days: number,
-  dataTab: "Tickets" | "Usuarios"
-) {
-  const data: { label: string; value: number }[] = [];
-  const now = new Date();
-
-  const dateArray = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    d.setHours(0, 0, 0, 0);
-    dateArray.push(d);
-  }
-
-  try {
-    if (dataTab === "Tickets") {
-      const { data: tickets, error } = await applyAreaFilter(
-        supabase.from("tickets").select("id, status, arrival_time"),
-        isAdmin,
-        teamId
-      );
-
-      if (error) {
-        console.error("Error fetching tickets for chart:", error.message);
-        return dateArray.map((date, index) => ({
-          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
-            ? `${date.toLocaleDateString("es-MX")}`
-            : "",
-          value: 0,
-        }));
-      }
-
-      dateArray.forEach((date, index) => {
-        const count = tickets?.filter((t: { id: number; status: string; arrival_time?: string }) => {
-          if (!t.arrival_time) return false;
-          const ticketDate = new Date(t.arrival_time);
-          ticketDate.setHours(0, 0, 0, 0);
-          return t.status === "Pendiente" && ticketDate <= date;
-        }).length || 0;
-
-        const day = date.getDate();
-        const month = date.toLocaleString("es-MX", { month: "short" });
-        const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
-        const showLabel = index % labelInterval === 0 || index === days - 1;
-
-        data.push({
-          label: showLabel ? `${month} ${day}` : "",
-          value: count,
-        });
-      });
-    } else {
-      const { data: users, error } = await applyAreaFilter(
-        supabase.from("users").select("id, is_active, created_at"),
-        isAdmin,
-        teamId
-      );
-
-      if (error) {
-        console.error("Error fetching users for chart:", error.message);
-        return dateArray.map((date, index) => ({
-          label: index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
-            ? `${date.toLocaleDateString("es-MX")}`
-            : "",
-          value: 0,
-        }));
-      }
-
-      dateArray.forEach((date, index) => {
-        const count = users?.filter((u: { id: number; is_active: boolean; created_at?: string }) => {
-          if (!u.created_at) return false;
-          const userDate = new Date(u.created_at);
-          userDate.setHours(0, 0, 0, 0);
-          return u.is_active && userDate <= date;
-        }).length || 0;
-
-        const day = date.getDate();
-        const month = date.toLocaleString("es-MX", { month: "short" });
-        const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
-        const showLabel = index % labelInterval === 0 || index === days - 1;
-
-        data.push({
-          label: showLabel ? `${month} ${day}` : "",
-          value: count,
-        });
-      });
-    }
-  } catch (err) {
-    console.error("Exception in generateChartDataFromDB:", err);
-  }
-
-  return data;
-}
-
-type RangeKey = 90 | 30 | 7;
-type DataTab = "Tickets" | "Usuarios";
-
-// ─── KPI Card ──────────────────────────────────────────────────────────
-interface KpiCardProps {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  trend: number;
-  trendLabel: string;
-  subLabel: string;
-}
-
-function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardProps) {
-  const isUp = trend >= 0;
-
-  return (
-    <div className="flex-1 min-w-0 rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] sm:text-xs text-foreground font-medium truncate">{title}</span>
-        <span
-          className={cn(
-            "flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0",
-            isUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600",
-            isUp ? "dark:text-emerald-400" : "dark:text-red-400",
-          )}
-        >
-          <ResponsiveIcon icon={isUp ? TrendingUp : TrendingDown} smSize={9} mdSize={11} />
-          {isUp ? "+" : ""}
-          {trend}%
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground text-sm sm:text-base shrink-0">{icon}</span>
-        <span className="text-foreground text-lg sm:text-2xl font-bold tracking-tight truncate">{value}</span>
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-border pt-2 sm:pt-3">
-        <ResponsiveIcon icon={Clock} smSize={10} mdSize={12} className="text-muted-foreground shrink-0" />
-        <div className="min-w-0">
-          <p className="text-[9px] sm:text-[11px] text-foreground/70 leading-tight truncate">{trendLabel}</p>
-          <p className="text-[9px] sm:text-[11px] text-foreground/70 mt-0.5 truncate">{subLabel}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Custom tooltip ───────────────────────────────────────────────────────
-interface ChartTooltipProps {
-  active?: boolean;
-  payload?: { value: number }[];
-  label?: string;
-  dataTab: DataTab;
-}
-
-function ChartTooltip({ active, payload, label, dataTab }: ChartTooltipProps) {
-  if (!active || !payload?.length) return null;
-
-  const value = payload?.[0]?.value;
-  if (value == null) return null;
-
-  const unit = dataTab === "Tickets" ? "tickets" : "usuarios";
-
-  return (
-    <div className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl border border-border bg-popover/90 backdrop-blur-md text-[10px] sm:text-xs text-popover-foreground shadow-lg">
-      {label && <p className="text-foreground/70 mb-0.5 sm:mb-1">{label}</p>}
-      <p className="font-semibold text-foreground">{value} {unit}</p>
-    </div>
-  );
-}
-
-// ─── Main view ─────────────────────────────────────────────────────────
 export function MetricasView() {
   const supabase = useMemo(() => createClient(), []);
   const { user } = useUser();
@@ -258,7 +32,19 @@ export function MetricasView() {
   const [totalTickets, setTotalTickets] = useState(0);
   const [pendingTickets, setPendingTickets] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [chartData, setChartData] = useState<{ label: string; value: number }[]>([]);
+
+  // Real-time KPI data
+  const [monthComparison, setMonthComparison] = useState<MonthComparison>({
+    currentMonth: 0,
+    previousMonth: 0,
+    percentChange: 0,
+  });
+  const [topIssueType, setTopIssueType] = useState<IssueTypeData>({ type: "N/A", count: 0 });
+  const [newUsersThisMonth, setNewUsersThisMonth] = useState(0);
+
+  // ✅ permite ambos shapes (Tickets series o Usuarios value)
+  const [chartData, setChartData] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -288,12 +74,23 @@ export function MetricasView() {
         const isAdmin = user.role === "admin";
         const currentTeamId = isAdmin ? undefined : Number(userData.team_id);
 
+        // Fetch basic metrics
         const ticketsMetrics = await fetchTicketsMetrics(supabase, isAdmin, currentTeamId);
         setTotalTickets(ticketsMetrics.total);
         setPendingTickets(ticketsMetrics.pending);
 
         const usersCount = await fetchUsersMetrics(supabase, isAdmin, currentTeamId);
         setTotalUsers(usersCount);
+
+        // Fetch real-time KPI data
+        const monthComp = await fetchMonthComparison(supabase, isAdmin, currentTeamId);
+        setMonthComparison(monthComp);
+
+        const topIssue = await fetchTopIssueType(supabase, isAdmin, currentTeamId);
+        setTopIssueType(topIssue);
+
+        const newUsers = await fetchNewUsersThisMonth(supabase, isAdmin, currentTeamId);
+        setNewUsersThisMonth(newUsers);
 
         const chartDataResult = await generateChartDataFromDB(
           supabase,
@@ -302,7 +99,20 @@ export function MetricasView() {
           range,
           dataTab
         );
-        setChartData(chartDataResult);
+
+        // Debug (temporal)
+        console.log("dataTab:", dataTab, "range:", range);
+        console.log("chartDataResult length:", (chartDataResult as any[])?.length);
+        console.log("chartDataResult[0]:", (chartDataResult as any[])?.[0]);
+
+        setChartData(chartDataResult as any[]);
+        console.log("dataTab:", dataTab, "range:", range);
+        console.log("chartDataResult length:", (chartDataResult as any[])?.length);
+        console.log("chartDataResult[0]:", (chartDataResult as any[])?.[0]);
+        console.log(
+          "chartDataResult last:",
+          (chartDataResult as any[])?.[(chartDataResult as any[])?.length - 1]
+        );
       } catch (err) {
         console.error("Error loading metrics:", err);
         setError("Error al cargar las métricas. Revisa la consola.");
@@ -311,9 +121,7 @@ export function MetricasView() {
       }
     };
 
-    if (user?.email) {
-      loadData();
-    }
+    if (user?.email) loadData();
   }, [user?.email, range, dataTab]);
 
   if (user.role !== "admin") {
@@ -333,14 +141,8 @@ export function MetricasView() {
   const strokeColor = isDark ? "#ffffff" : "#111827";
   const tickColor = isDark ? "#a1a1aa" : "#4b5563";
   const cursorColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
-  const gridStroke = isDark ? "#18181b" : "#e5e7eb";
 
-  const RANGE_LABELS: Record<RangeKey, string> = {
-    90: "90 días",
-    30: "30 días",
-    7: "7 días",
-  };
-
+  const RANGE_LABELS: Record<RangeKey, string> = { 90: "90 días", 30: "30 días", 7: "7 días" };
   const RANGE_LABELS_FULL: Record<RangeKey, string> = {
     90: "Últimos 90 días",
     30: "Últimos 30 días",
@@ -349,56 +151,54 @@ export function MetricasView() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header - h-16 matches sidebar logo height */}
       <div className="h-16 flex items-center justify-center sm:justify-start px-3 sm:px-4 md:px-8 border-b border-border/50 shrink-0">
-        <h1 className="text-foreground text-base sm:text-lg md:text-xl font-semibold text-center sm:text-left">Métricas</h1>
+        <h1 className="text-foreground text-base sm:text-lg md:text-xl font-semibold text-center sm:text-left">
+          Métricas
+        </h1>
       </div>
 
-      {/* Content */}
       <div className="flex-1 px-3 sm:px-4 md:px-8 py-4 sm:py-6 flex flex-col gap-3 sm:gap-5 overflow-auto">
-        {/* Error message */}
         {error && (
           <div className="p-3 sm:p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs sm:text-sm">
             {error}
           </div>
         )}
 
-        {/* KPI cards row - responsive grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
           <KpiCard
             title="Total de Tickets"
-            value={`${totalTickets}`}
+            value={`${monthComparison.currentMonth}`}
             icon={<Ticket size={22} />}
-            trend={3.2}
-            trendLabel="Dentro del promedio"
-            subLabel="5 más que el mes pasado"
+            trend={Math.round(monthComparison.percentChange)}
+            trendLabel={
+              monthComparison.percentChange > 0 ? "Incremento este mes" : monthComparison.percentChange < 0 ? "Decremento este mes" : "Sin cambios"
+            }
+            subLabel={`${Math.abs(monthComparison.currentMonth - monthComparison.previousMonth)} ${monthComparison.currentMonth > monthComparison.previousMonth ? "más" : "menos"} que el mes anterior`}
           />
           <KpiCard
-            title="Tickets pendientes"
-            value={`${pendingTickets}`}
+            title="Categoría más reportada"
+            value={topIssueType.type}
             icon={<Ticket size={22} />}
-            trend={-5}
-            trendLabel="Mas bajo del mes"
-            subLabel="10 menos que el mes pasado"
+            trend={null}
+            trendLabel="Este mes"
+            subLabel={`${topIssueType.type} tuvo un total de ${topIssueType.count} tickets`}
           />
           <KpiCard
             title="Total de Usuarios"
             value={`${totalUsers}`}
             icon={<Users size={22} />}
-            trend={15}
-            trendLabel="Mas alto del mes"
-            subLabel="20 usuarios nuevos"
+            trend={totalUsers > 0 ? Math.round(Math.min(Math.max((newUsersThisMonth / totalUsers) * 100, 0), 100)) : 0}
+            trendLabel="Este mes"
+            subLabel={`${newUsersThisMonth} usuario${newUsersThisMonth !== 1 ? "s" : ""} nuevo${newUsersThisMonth !== 1 ? "s" : ""}`}
           />
         </div>
 
-        {/* Chart card */}
-        <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 min-h-87.5 sm:min-h-112.5">
-          {/* Header section - responsive */}
+        <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-6 flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
               <h2 className="text-foreground font-semibold text-sm sm:text-base wrap-break-word">
-                {dataTab === "Tickets" 
-                  ? "Total de Tickets Pendientes" 
+                {dataTab === "Tickets"
+                  ? "Evolución de Tickets (Total y Pendientes)"
                   : "Total de Usuarios Registrados"}
               </h2>
               <p className="text-foreground/70 text-xs sm:text-sm mt-1">
@@ -407,7 +207,6 @@ export function MetricasView() {
               </p>
             </div>
 
-            {/* Range buttons - responsive */}
             <div className="flex items-center gap-0.5 bg-muted border border-border rounded-lg sm:rounded-xl p-0.5 shrink-0 w-full sm:w-auto">
               {([90, 30, 7] as RangeKey[]).map((r) => (
                 <button
@@ -427,76 +226,62 @@ export function MetricasView() {
             </div>
           </div>
 
-          {/* Chart container - CORREGIDO */}
           {loading ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="h-[320px] sm:h-[380px] flex items-center justify-center">
               <span className="text-foreground/70 text-sm">Cargando gráfico...</span>
             </div>
           ) : chartData.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="h-[320px] sm:h-[380px] flex items-center justify-center">
               <span className="text-foreground/70 text-sm">Sin datos disponibles</span>
             </div>
           ) : (
-            <div className="flex-1 w-full">
-              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                <AreaChart
-                  data={chartData}
-                  margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-                >
-                  <defs>
-                    <linearGradient id="ticketGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor={strokeColor}
-                        stopOpacity={isDark ? 0.18 : 0.12}
-                      />
-                      <stop
-                        offset="55%"
-                        stopColor={strokeColor}
-                        stopOpacity={isDark ? 0.07 : 0.06}
-                      />
-                      <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: tickColor, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: tickColor, fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-
-                  <Tooltip 
-                    content={<ChartTooltip dataTab={dataTab} />} 
-                    cursor={{ stroke: cursorColor, strokeWidth: 1 }} 
-                  />
-
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                    fill="url(#ticketGradient)"
-                    dot={false}
-                    activeDot={{
-                      r: 5,
-                      fill: strokeColor,
-                      stroke: gridStroke,
-                      strokeWidth: 2,
-                    }}
-                  />
-                </AreaChart>
+            <div className="w-full h-[320px] sm:h-[380px] min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                {dataTab === "Tickets" ? (
+                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      content={<ChartTooltip dataTab={dataTab} />}
+                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: "20px" }}
+                      iconType="line"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      stroke="#06b6d4"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Total"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pending"
+                      stroke="#fbbf24"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Pendientes"
+                    />
+                  </LineChart>
+                ) : (
+                  <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      content={<ChartTooltip dataTab={dataTab} />}
+                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                    />
+                    <Area type="monotone" dataKey="value" stroke={strokeColor} strokeWidth={2} fillOpacity={0} dot={false} />
+                  </AreaChart>
+                )}
               </ResponsiveContainer>
             </div>
           )}
         </div>
 
-        {/* Data tabs - responsive */}
         <div className="flex gap-1 bg-muted border border-border rounded-lg p-0.5 w-full sm:w-auto">
           {(["Tickets", "Usuarios"] as DataTab[]).map((t) => (
             <button
