@@ -36,7 +36,35 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: If you remove getClaims() and you use server-side rendering
   // with the Supabase client, your users may be randomly logged out.
-  await supabase.auth.getClaims()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  // If user is authenticated, validate their is_active status
+  if (user?.email && !authError) {
+    try {
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('is_active')
+        .eq('email', user.email)
+        .single()
+
+      // If user is deactivated, sign them out by removing the session
+      if (profileError || !userProfile?.is_active) {
+        // Create a response that will clear the session cookies
+        const response = NextResponse.redirect(new URL('/login', request.url))
+        
+        // Clear Supabase auth cookies to invalidate the session
+        response.cookies.delete('sb-access-token')
+        response.cookies.delete('sb-refresh-token')
+        response.cookies.delete('sb-auth-token')
+        
+        return response
+      }
+    } catch (error) {
+      console.error('Error checking user active status in middleware:', error)
+      // Continue with the request if there's an error checking status
+      // This prevents middleware from breaking the app
+    }
+  }
 
   return supabaseResponse
 }

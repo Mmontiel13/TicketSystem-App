@@ -19,12 +19,19 @@ export default async function DashboardLayout({
   const userEmail = authData.user.email;
   const { data: profile, error: profileError } = await supabase
     .from("users")
-    .select("id, full_name, avatar_icon, role, email")
+    .select("id, full_name, avatar_icon, role, email, is_active")
     .eq("email", userEmail)
     .single();
 
   if (profileError || !profile) {
     console.error("Unable to load dashboard profile:", profileError);
+    redirect("/login");
+  }
+
+  // Check if user account is still active
+  if (!profile.is_active) {
+    // Sign out the user
+    await supabase.auth.signOut();
     redirect("/login");
   }
 
@@ -35,7 +42,7 @@ export default async function DashboardLayout({
     email: profile.email,
     role: (profile.role as UserRole) ?? "user",
     iconId: (profile.avatar_icon as IconUserId) || "Users",
-    isActive: true,
+    isActive: profile.is_active,
     deletedAt: null,
   };
 

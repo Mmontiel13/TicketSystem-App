@@ -51,13 +51,22 @@ export default function LoginPage() {
       const userEmail = data.session.user.email ?? identifier.trim().toLowerCase();
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("id, full_name, avatar_icon, role, email")
+        .select("id, full_name, avatar_icon, role, email, is_active")
         .eq("email", userEmail)
         .single();
 
       if (profileError || !profile) {
         setError("No se pudo cargar el perfil del usuario.");
         setLoading(false);
+        return;
+      }
+
+      // Check if user account is active
+      if (!profile.is_active) {
+        setError("Tu cuenta ha sido desactivada. Contacta al administrador.");
+        setLoading(false);
+        // Sign out the user since they shouldn't be logged in
+        await supabase.auth.signOut();
         return;
       }
 
