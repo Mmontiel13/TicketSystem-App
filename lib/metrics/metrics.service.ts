@@ -206,6 +206,70 @@ export async function fetchNewUsersThisMonth(
   }
 }
 
+/** Fetch month-over-month comparison for active users */
+export async function fetchActiveUsersComparison(
+  supabase: SupabaseClient,
+  isAdmin: boolean,
+  teamId?: number
+) {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Current month active users
+    const { data: currentData, error: currentError } = await applyAreaFilter(
+      supabase
+        .from("users")
+        .select("id, is_active")
+        .gte("created_at", currentMonthStart.toISOString())
+        .eq("is_active", true),
+      isAdmin,
+      teamId
+    );
+
+    if (currentError) {
+      console.error("Error fetching current month active users:", currentError.message);
+      return { currentMonth: 0, previousMonth: 0, percentChange: 0, userDifference: 0 };
+    }
+
+    // Previous month active users
+    const { data: previousData, error: previousError } = await applyAreaFilter(
+      supabase
+        .from("users")
+        .select("id, is_active")
+        .gte("created_at", previousMonthStart.toISOString())
+        .lte("created_at", previousMonthEnd.toISOString())
+        .eq("is_active", true),
+      isAdmin,
+      teamId
+    );
+
+    if (previousError) {
+      console.error("Error fetching previous month active users:", previousError.message);
+      return { currentMonth: 0, previousMonth: 0, percentChange: 0, userDifference: 0 };
+    }
+
+    const currentCount = currentData?.length || 0;
+    const previousCount = previousData?.length || 0;
+    const userDifference = currentCount - previousCount;
+
+    let percentChange = 0;
+    if (previousCount > 0) {
+      percentChange = ((userDifference) / previousCount) * 100;
+    } else if (currentCount > 0) {
+      // If previous month had 0 active users but current has some, show 100% growth
+      percentChange = 100;
+    }
+
+    return { currentMonth: currentCount, previousMonth: previousCount, percentChange, userDifference };
+  } catch (err) {
+    console.error("Exception in fetchActiveUsersComparison:", err);
+    return { currentMonth: 0, previousMonth: 0, percentChange: 0, userDifference: 0 };
+  }
+}
+
 // ---------- helpers ----------
 function toDayKeyUTCFromISO(iso: string) {
   const d = new Date(iso);
@@ -316,7 +380,7 @@ export async function generateChartDataFromDB(
       return series;
     }
 
-    // Usuarios (sin cambios)
+    // Usuarios - Dual line chart for active vs inactive
     const { data: users, error } = await applyAreaFilter(
       supabase.from("users").select("id, is_active, created_at"),
       isAdmin,
@@ -330,33 +394,93 @@ export async function generateChartDataFromDB(
           index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
             ? `${date.toLocaleDateString("es-MX")}`
             : "",
-        value: 0,
+        active: 0,
+        inactive: 0,
       }));
     }
 
-    const data: ChartPoint[] = [];
+    // Normalize user data: assign null created_at to the earliest date in dataset
+    const normalizedUsers = (users || []).map((u: { is_active: boolean; created_at?: string; id?: number }) => {
+      // If user has created_at, use it
+      if (u.created_at && u.created_at.trim()) {
+        return u;
+      }
+      
+      // If no created_at, we'll assign to earliest date after we find it
+      return { ...u, created_at: null };
+    });
+
+    console.log(`📊 Chart: Total users fetched: ${normalizedUsers.length}`);
+
+    // Find the earliest created_at from users that have it
+    let earliestDate: Date | null = null;
+    for (const u of normalizedUsers) {
+      if (u.created_at && u.created_at.trim()) {
+        const userDate = new Date(u.created_at);
+        if (!Number.isNaN(userDate.getTime())) {
+          if (!earliestDate || userDate < earliestDate) {
+            earliestDate = userDate;
+          }
+        }
+      }
+    }
+
+    // If no valid dates found, use start of the date range
+    if (!earliestDate && dateArray.length > 0) {
+      earliestDate = new Date(dateArray[0]);
+    }
+
+    // Assign null created_at to the earliest date found
+    const processedUsers = normalizedUsers.map((u: { is_active: boolean; created_at?: string | null; id?: number }) => {
+      if (!u.created_at || !u.created_at.trim()) {
+        return {
+          ...u,
+          created_at: earliestDate ? earliestDate.toISOString() : dateArray[0].toISOString(),
+        };
+      }
+      return u;
+    });
+
+    console.log(`📊 Chart: Processed users: ${processedUsers.length}, Active: ${processedUsers.filter((u: any) => u.is_active).length}, Inactive: ${processedUsers.filter((u: any) => !u.is_active).length}`);
+
+    const usersData: any[] = [];
 
     dateArray.forEach((date, index) => {
-      const count =
-        users?.filter((u: { is_active: boolean; created_at?: string }) => {
-          if (!u.created_at) return false;
-          const userDate = new Date(u.created_at);
-          userDate.setHours(0, 0, 0, 0);
-          return u.is_active && userDate <= date;
-        }).length || 0;
+      // Count cumulative active users (all array elements that are active and created <= date)
+      const activeCount = processedUsers.filter((u: { is_active: boolean; created_at: string }) => {
+        if (!u.is_active) return false;
+        const userDate = new Date(u.created_at);
+        userDate.setHours(0, 0, 0, 0);
+        return userDate <= date;
+      }).length;
+
+      // Count cumulative inactive users (all array elements that are inactive and created <= date)
+      const inactiveCount = processedUsers.filter((u: { is_active: boolean; created_at: string }) => {
+        if (u.is_active) return false;
+        const userDate = new Date(u.created_at);
+        userDate.setHours(0, 0, 0, 0);
+        return userDate <= date;
+      }).length;
 
       const day = date.getUTCDate();
       const month = date.toLocaleString("es-MX", { month: "short", timeZone: "UTC" });
       const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
       const showLabel = index % labelInterval === 0 || index === days - 1;
 
-      data.push({
+      usersData.push({
         label: showLabel ? `${month} ${day}` : "",
-        value: count,
+        active: activeCount,
+        inactive: inactiveCount,
       });
     });
 
-    return data;
+    // Log final values
+    if (usersData.length > 0) {
+      const lastPoint = usersData[usersData.length - 1];
+      console.log(`📊 Chart Final Point - Active: ${lastPoint.active}, Inactive: ${lastPoint.inactive}, Total: ${lastPoint.active + lastPoint.inactive}`);
+    }
+
+    return usersData;
   } catch (err) {
     console.error("Exception in generateChartDataFromDB:", err);
 
@@ -377,7 +501,8 @@ export async function generateChartDataFromDB(
         index % (days === 7 ? 1 : days === 30 ? 7 : 14) === 0 || index === days - 1
           ? `${date.toLocaleDateString("es-MX")}`
           : "",
-      value: 0,
+      active: 0,
+      inactive: 0,
     }));
   }
 }

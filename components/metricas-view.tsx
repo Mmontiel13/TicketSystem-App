@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/user-context";
 
-import type { RangeKey, DataTab, MonthComparison, IssueTypeData } from "@/lib/metrics/metrics.types";
+import type { RangeKey, DataTab, MonthComparison, IssueTypeData, ActiveUsersComparison } from "@/lib/metrics/metrics.types";
 import {
   fetchTicketsMetrics,
   fetchUsersMetrics,
@@ -17,6 +17,7 @@ import {
   fetchMonthComparison,
   fetchTopIssueType,
   fetchNewUsersThisMonth,
+  fetchActiveUsersComparison,
 } from "@/lib/metrics/metrics.service";
 
 import { KpiCard } from "@/components/metrics/kpi-card";
@@ -38,6 +39,12 @@ export function MetricasView() {
     currentMonth: 0,
     previousMonth: 0,
     percentChange: 0,
+  });
+  const [activeUsersComparison, setActiveUsersComparison] = useState<ActiveUsersComparison>({
+    currentMonth: 0,
+    previousMonth: 0,
+    percentChange: 0,
+    userDifference: 0,
   });
   const [topIssueType, setTopIssueType] = useState<IssueTypeData>({ type: "N/A", count: 0 });
   const [newUsersThisMonth, setNewUsersThisMonth] = useState(0);
@@ -86,6 +93,9 @@ export function MetricasView() {
         const monthComp = await fetchMonthComparison(supabase, isAdmin, currentTeamId);
         setMonthComparison(monthComp);
 
+        const activeUsersComp = await fetchActiveUsersComparison(supabase, isAdmin, currentTeamId);
+        setActiveUsersComparison(activeUsersComp);
+
         const topIssue = await fetchTopIssueType(supabase, isAdmin, currentTeamId);
         setTopIssueType(topIssue);
 
@@ -113,6 +123,20 @@ export function MetricasView() {
           "chartDataResult last:",
           (chartDataResult as any[])?.[(chartDataResult as any[])?.length - 1]
         );
+        
+        // Debug: Check chart final values vs KPI values
+        if (dataTab === "Usuarios" && chartDataResult && (chartDataResult as any[]).length > 0) {
+          const lastChartPoint = (chartDataResult as any[])[(chartDataResult as any[]).length - 1];
+          const chartTotal = lastChartPoint.active + lastChartPoint.inactive;
+          console.log(
+            `✅ Chart Final - Active: ${lastChartPoint.active}, Inactive: ${lastChartPoint.inactive}, Total: ${chartTotal}`
+          );
+          console.log(`✅ KPI Total Users: ${totalUsers}`);
+          console.log(`✅ KPI Active Users: ${activeUsersComparison.currentMonth}`);
+          console.log(
+            `${chartTotal === totalUsers ? "✅ MATCH" : "❌ MISMATCH"}: Chart Total (${chartTotal}) vs KPI Total (${totalUsers})`
+          );
+        }
       } catch (err) {
         console.error("Error loading metrics:", err);
         setError("Error al cargar las métricas. Revisa la consola.");
@@ -187,9 +211,15 @@ export function MetricasView() {
             title="Total de Usuarios"
             value={`${totalUsers}`}
             icon={<Users size={22} />}
-            trend={totalUsers > 0 ? Math.round(Math.min(Math.max((newUsersThisMonth / totalUsers) * 100, 0), 100)) : 0}
-            trendLabel="Este mes"
-            subLabel={`${newUsersThisMonth} usuario${newUsersThisMonth !== 1 ? "s" : ""} nuevo${newUsersThisMonth !== 1 ? "s" : ""}`}
+            trend={Math.round(activeUsersComparison.percentChange)}
+            trendLabel={
+              activeUsersComparison.percentChange > 0
+                ? "Incremento de personal"
+                : activeUsersComparison.percentChange < 0
+                ? "Decremento de personal"
+                : "Sin cambios"
+            }
+            subLabel={`${Math.abs(activeUsersComparison.userDifference)} usuario${Math.abs(activeUsersComparison.userDifference) !== 1 ? "s" : ""} ${activeUsersComparison.userDifference > 0 ? "más" : activeUsersComparison.userDifference < 0 ? "menos" : "sin cambios"} que el periodo anterior`}
           />
         </div>
 
@@ -197,9 +227,10 @@ export function MetricasView() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
               <h2 className="text-foreground font-semibold text-sm sm:text-base wrap-break-word">
-                {dataTab === "Tickets"
-                  ? "Evolución de Tickets (Total y Pendientes)"
-                  : "Total de Usuarios Registrados"}
+                {/* {dataTab === "Tickets" */}
+                {/*   ? "Evolución de Tickets (Total y Pendientes)" */}
+                {/*   : "Total de Usuarios Registrados"} */}
+                Evolución de Tickets (Total y Pendientes)
               </h2>
               <p className="text-foreground/70 text-xs sm:text-sm mt-1">
                 Total de los últimos{" "}
@@ -237,66 +268,67 @@ export function MetricasView() {
           ) : (
             <div className="w-full h-[320px] sm:h-[380px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
-                {dataTab === "Tickets" ? (
-                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      content={<ChartTooltip dataTab={dataTab} />}
-                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
-                    />
-                    <Legend 
-                      wrapperStyle={{ paddingTop: "20px" }}
-                      iconType="line"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="#06b6d4"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Total"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="pending"
-                      stroke="#fbbf24"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Pendientes"
-                    />
-                  </LineChart>
-                ) : (
-                  <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      content={<ChartTooltip dataTab={dataTab} />}
-                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
-                    />
-                    <Area type="monotone" dataKey="value" stroke={strokeColor} strokeWidth={2} fillOpacity={0} dot={false} />
-                  </AreaChart>
-                )}
+                {/* Tickets Chart - Always Visible */}
+                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    content={<ChartTooltip dataTab={dataTab} />}
+                    cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: "20px" }}
+                    iconType="line"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Total"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="pending"
+                    stroke="#fbbf24"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Pendientes"
+                  />
+                </LineChart>
+                {/* Users Chart - Disabled/Commented Out */}
+                {/* <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    content={<ChartTooltip dataTab={dataTab} />}
+                    cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: "20px" }}
+                    iconType="line"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="active"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Usuarios Activos"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="inactive"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Usuarios Inactivos"
+                  />
+                </LineChart> */}
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-
-        <div className="flex gap-1 bg-muted border border-border rounded-lg p-0.5 w-full sm:w-auto">
-          {(["Tickets", "Usuarios"] as DataTab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setDataTab(t)}
-              className={cn(
-                "px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-auto",
-                dataTab === t
-                  ? "bg-background text-foreground border border-border"
-                  : "text-foreground/70 hover:text-foreground",
-              )}
-            >
-              {t}
-            </button>
-          ))}
         </div>
       </div>
     </div>

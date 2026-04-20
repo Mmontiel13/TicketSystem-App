@@ -10,10 +10,23 @@ export type TicketsSeriesPoint = {
   done: number;
 };
 
+export type UsersSeriesPoint = {
+  label: string;
+  active: number;
+  inactive: number;
+};
+
 export type MonthComparison = {
   currentMonth: number;
   previousMonth: number;
   percentChange: number;
+};
+
+export type ActiveUsersComparison = {
+  currentMonth: number;
+  previousMonth: number;
+  percentChange: number;
+  userDifference: number;
 };
 
 export type IssueTypeData = {
