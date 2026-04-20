@@ -63,6 +63,149 @@ export async function fetchUsersMetrics(
   }
 }
 
+// ========== NEW FUNCTIONS FOR REFACTORED METRICS ==========
+
+/** Fetch month-over-month comparison for total tickets */
+export async function fetchMonthComparison(
+  supabase: SupabaseClient,
+  isAdmin: boolean,
+  teamId?: number
+) {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Current month tickets
+    const { data: currentData, error: currentError } = await applyAreaFilter(
+      supabase
+        .from("tickets")
+        .select("id, arrival_time")
+        .gte("arrival_time", currentMonthStart.toISOString()),
+      isAdmin,
+      teamId
+    );
+
+    if (currentError) {
+      console.error("Error fetching current month tickets:", currentError.message);
+      return { currentMonth: 0, previousMonth: 0, percentChange: 0 };
+    }
+
+    // Previous month tickets
+    const { data: previousData, error: previousError } = await applyAreaFilter(
+      supabase
+        .from("tickets")
+        .select("id, arrival_time")
+        .gte("arrival_time", previousMonthStart.toISOString())
+        .lte("arrival_time", previousMonthEnd.toISOString()),
+      isAdmin,
+      teamId
+    );
+
+    if (previousError) {
+      console.error("Error fetching previous month tickets:", previousError.message);
+      return { currentMonth: 0, previousMonth: 0, percentChange: 0 };
+    }
+
+    const currentCount = currentData?.length || 0;
+    const previousCount = previousData?.length || 0;
+
+    let percentChange = 0;
+    if (previousCount > 0) {
+      percentChange = ((currentCount - previousCount) / previousCount) * 100;
+    } else if (currentCount > 0) {
+      // If previous month had 0 tickets but current has some, show 100% growth
+      percentChange = 100;
+    }
+
+    return { currentMonth: currentCount, previousMonth: previousCount, percentChange };
+  } catch (err) {
+    console.error("Exception in fetchMonthComparison:", err);
+    return { currentMonth: 0, previousMonth: 0, percentChange: 0 };
+  }
+}
+
+/** Fetch the top issue type (most reported) */
+export async function fetchTopIssueType(
+  supabase: SupabaseClient,
+  isAdmin: boolean,
+  teamId?: number
+) {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const { data, error } = await applyAreaFilter(
+      supabase
+        .from("tickets")
+        .select("type")
+        .gte("arrival_time", monthStart.toISOString()),
+      isAdmin,
+      teamId
+    );
+
+    if (error) {
+      console.error("Error fetching issue types:", error.message);
+      return { type: "N/A", count: 0 };
+    }
+
+    // Group by type and count
+    const typeCounts: Record<string, number> = {};
+    (data ?? []).forEach((ticket: { type: string }) => {
+      if (ticket.type) {
+        typeCounts[ticket.type] = (typeCounts[ticket.type] || 0) + 1;
+      }
+    });
+
+    // Find the type with highest count
+    let topType = "N/A";
+    let maxCount = 0;
+    Object.entries(typeCounts).forEach(([type, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        topType = type;
+      }
+    });
+
+    return { type: topType, count: maxCount };
+  } catch (err) {
+    console.error("Exception in fetchTopIssueType:", err);
+    return { type: "N/A", count: 0 };
+  }
+}
+
+/** Fetch new users registered this month */
+export async function fetchNewUsersThisMonth(
+  supabase: SupabaseClient,
+  isAdmin: boolean,
+  teamId?: number
+) {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const { data, error } = await applyAreaFilter(
+      supabase
+        .from("users")
+        .select("id, created_at")
+        .gte("created_at", monthStart.toISOString()),
+      isAdmin,
+      teamId
+    );
+
+    if (error) {
+      console.error("Error fetching new users:", error.message);
+      return 0;
+    }
+
+    return data?.length || 0;
+  } catch (err) {
+    console.error("Exception in fetchNewUsersThisMonth:", err);
+    return 0;
+  }
+}
+
 // ---------- helpers ----------
 function toDayKeyUTCFromISO(iso: string) {
   const d = new Date(iso);
@@ -138,9 +281,22 @@ export async function generateChartDataFromDB(
         if (t.status === "Terminada") countsByDay[key].done += 1;
       }
 
+      // Calculate cumulative total and real-time pending
+      let cumulativeTotal = 0;
       const series: TicketsSeriesPoint[] = dateArray.map((date, index) => {
         const key = toDayKeyUTCFromDate(date);
         const dayCount = countsByDay[key] ?? { pending: 0, done: 0, total: 0 };
+
+        // Cumulative total (tickets arrived)
+        cumulativeTotal += dayCount.total;
+
+        // Pending count: increases on arrival, decreases when status = "Terminada"
+        let realTimePending = 0;
+        for (let i = 0; i <= index; i++) {
+          const prevKey = toDayKeyUTCFromDate(dateArray[i]);
+          const prevCount = countsByDay[prevKey] ?? { pending: 0, done: 0, total: 0 };
+          realTimePending += prevCount.total - prevCount.done;
+        }
 
         const labelInterval = days === 7 ? 1 : days === 30 ? 7 : 14;
         const showLabel = index % labelInterval === 0 || index === days - 1;
@@ -150,9 +306,9 @@ export async function generateChartDataFromDB(
 
         return {
           label: showLabel ? `${monthLabel} ${dayLabel}` : "",
-          pending: dayCount.pending,
+          total: cumulativeTotal,
+          pending: realTimePending,
           done: dayCount.done,
-          total: dayCount.total,
         };
       });
 

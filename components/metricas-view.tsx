@@ -2,18 +2,21 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Ticket, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/user-context";
 
-import type { RangeKey, DataTab } from "@/lib/metrics/metrics.types";
+import type { RangeKey, DataTab, MonthComparison, IssueTypeData } from "@/lib/metrics/metrics.types";
 import {
   fetchTicketsMetrics,
   fetchUsersMetrics,
   generateChartDataFromDB,
+  fetchMonthComparison,
+  fetchTopIssueType,
+  fetchNewUsersThisMonth,
 } from "@/lib/metrics/metrics.service";
 
 import { KpiCard } from "@/components/metrics/kpi-card";
@@ -29,6 +32,15 @@ export function MetricasView() {
   const [totalTickets, setTotalTickets] = useState(0);
   const [pendingTickets, setPendingTickets] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
+
+  // Real-time KPI data
+  const [monthComparison, setMonthComparison] = useState<MonthComparison>({
+    currentMonth: 0,
+    previousMonth: 0,
+    percentChange: 0,
+  });
+  const [topIssueType, setTopIssueType] = useState<IssueTypeData>({ type: "N/A", count: 0 });
+  const [newUsersThisMonth, setNewUsersThisMonth] = useState(0);
 
   // ✅ permite ambos shapes (Tickets series o Usuarios value)
   const [chartData, setChartData] = useState<any[]>([]);
@@ -62,12 +74,23 @@ export function MetricasView() {
         const isAdmin = user.role === "admin";
         const currentTeamId = isAdmin ? undefined : Number(userData.team_id);
 
+        // Fetch basic metrics
         const ticketsMetrics = await fetchTicketsMetrics(supabase, isAdmin, currentTeamId);
         setTotalTickets(ticketsMetrics.total);
         setPendingTickets(ticketsMetrics.pending);
 
         const usersCount = await fetchUsersMetrics(supabase, isAdmin, currentTeamId);
         setTotalUsers(usersCount);
+
+        // Fetch real-time KPI data
+        const monthComp = await fetchMonthComparison(supabase, isAdmin, currentTeamId);
+        setMonthComparison(monthComp);
+
+        const topIssue = await fetchTopIssueType(supabase, isAdmin, currentTeamId);
+        setTopIssueType(topIssue);
+
+        const newUsers = await fetchNewUsersThisMonth(supabase, isAdmin, currentTeamId);
+        setNewUsersThisMonth(newUsers);
 
         const chartDataResult = await generateChartDataFromDB(
           supabase,
@@ -84,9 +107,12 @@ export function MetricasView() {
 
         setChartData(chartDataResult as any[]);
         console.log("dataTab:", dataTab, "range:", range);
-console.log("chartDataResult length:", (chartDataResult as any[])?.length);
-console.log("chartDataResult[0]:", (chartDataResult as any[])?.[0]);
-console.log("chartDataResult last:", (chartDataResult as any[])?.[(chartDataResult as any[])?.length - 1]);
+        console.log("chartDataResult length:", (chartDataResult as any[])?.length);
+        console.log("chartDataResult[0]:", (chartDataResult as any[])?.[0]);
+        console.log(
+          "chartDataResult last:",
+          (chartDataResult as any[])?.[(chartDataResult as any[])?.length - 1]
+        );
       } catch (err) {
         console.error("Error loading metrics:", err);
         setError("Error al cargar las métricas. Revisa la consola.");
@@ -141,27 +167,29 @@ console.log("chartDataResult last:", (chartDataResult as any[])?.[(chartDataResu
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
           <KpiCard
             title="Total de Tickets"
-            value={`${totalTickets}`}
+            value={`${monthComparison.currentMonth}`}
             icon={<Ticket size={22} />}
-            trend={3.2}
-            trendLabel="Dentro del promedio"
-            subLabel="5 más que el mes pasado"
+            trend={Math.round(monthComparison.percentChange)}
+            trendLabel={
+              monthComparison.percentChange > 0 ? "Incremento este mes" : monthComparison.percentChange < 0 ? "Decremento este mes" : "Sin cambios"
+            }
+            subLabel={`${Math.abs(monthComparison.currentMonth - monthComparison.previousMonth)} ${monthComparison.currentMonth > monthComparison.previousMonth ? "más" : "menos"} que el mes anterior`}
           />
           <KpiCard
-            title="Tickets pendientes"
-            value={`${pendingTickets}`}
+            title="Categoría más reportada"
+            value={topIssueType.type}
             icon={<Ticket size={22} />}
-            trend={-5}
-            trendLabel="Mas bajo del mes"
-            subLabel="10 menos que el mes pasado"
+            trend={null}
+            trendLabel="Este mes"
+            subLabel={`${topIssueType.type} tuvo un total de ${topIssueType.count} tickets`}
           />
           <KpiCard
             title="Total de Usuarios"
             value={`${totalUsers}`}
             icon={<Users size={22} />}
-            trend={15}
-            trendLabel="Mas alto del mes"
-            subLabel="20 usuarios nuevos"
+            trend={totalUsers > 0 ? Math.round(Math.min(Math.max((newUsersThisMonth / totalUsers) * 100, 0), 100)) : 0}
+            trendLabel="Este mes"
+            subLabel={`${newUsersThisMonth} usuario${newUsersThisMonth !== 1 ? "s" : ""} nuevo${newUsersThisMonth !== 1 ? "s" : ""}`}
           />
         </div>
 
@@ -170,7 +198,7 @@ console.log("chartDataResult last:", (chartDataResult as any[])?.[(chartDataResu
             <div className="flex-1 min-w-0">
               <h2 className="text-foreground font-semibold text-sm sm:text-base wrap-break-word">
                 {dataTab === "Tickets"
-                  ? "Tickets (Pendientes, Terminados y Totales)"
+                  ? "Evolución de Tickets (Total y Pendientes)"
                   : "Total de Usuarios Registrados"}
               </h2>
               <p className="text-foreground/70 text-xs sm:text-sm mt-1">
@@ -209,25 +237,46 @@ console.log("chartDataResult last:", (chartDataResult as any[])?.[(chartDataResu
           ) : (
             <div className="w-full h-[320px] sm:h-[380px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                  <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
-
-                  <Tooltip
-                    content={dataTab === "Usuarios" ? <ChartTooltip dataTab={dataTab} /> : undefined}
-                    cursor={{ stroke: cursorColor, strokeWidth: 1 }}
-                  />
-
-                  {dataTab === "Tickets" ? (
-                    <>
-                      <Area type="monotone" dataKey="total" stroke={strokeColor} strokeWidth={2} fillOpacity={0} dot={false} />
-                      <Area type="monotone" dataKey="pending" stroke="#facc15" strokeWidth={2} fillOpacity={0} dot={false} />
-                      <Area type="monotone" dataKey="done" stroke="#ef4444" strokeWidth={2} fillOpacity={0} dot={false} />
-                    </>
-                  ) : (
+                {dataTab === "Tickets" ? (
+                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      content={<ChartTooltip dataTab={dataTab} />}
+                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: "20px" }}
+                      iconType="line"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      stroke="#06b6d4"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Total"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pending"
+                      stroke="#fbbf24"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Pendientes"
+                    />
+                  </LineChart>
+                ) : (
+                  <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: tickColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      content={<ChartTooltip dataTab={dataTab} />}
+                      cursor={{ stroke: cursorColor, strokeWidth: 1 }}
+                    />
                     <Area type="monotone" dataKey="value" stroke={strokeColor} strokeWidth={2} fillOpacity={0} dot={false} />
-                  )}
-                </AreaChart>
+                  </AreaChart>
+                )}
               </ResponsiveContainer>
             </div>
           )}

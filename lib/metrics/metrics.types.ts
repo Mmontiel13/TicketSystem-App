@@ -9,3 +9,14 @@ export type TicketsSeriesPoint = {
   pending: number;
   done: number;
 };
+
+export type MonthComparison = {
+  currentMonth: number;
+  previousMonth: number;
+  percentChange: number;
+};
+
+export type IssueTypeData = {
+  type: string;
+  count: number;
+};

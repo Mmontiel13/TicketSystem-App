@@ -6,13 +6,14 @@ interface KpiCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
-  trend: number;
+  trend?: number | null;
   trendLabel: string;
   subLabel: string;
 }
 
 export function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: KpiCardProps) {
-  const isUp = trend >= 0;
+  const isUp = trend !== null && trend !== undefined ? trend >= 0 : false;
+  const shouldShowTrend = trend !== null && trend !== undefined;
 
   return (
     <div className="flex-1 min-w-0 rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 flex flex-col gap-2 sm:gap-3">
@@ -20,17 +21,19 @@ export function KpiCard({ title, value, icon, trend, trendLabel, subLabel }: Kpi
         <span className="text-[10px] sm:text-xs text-foreground font-medium truncate">
           {title}
         </span>
-        <span
-          className={cn(
-            "flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0",
-            isUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600",
-            isUp ? "dark:text-emerald-400" : "dark:text-red-400",
-          )}
-        >
-          <ResponsiveIcon icon={isUp ? TrendingUp : TrendingDown} smSize={9} mdSize={11} />
-          {isUp ? "+" : ""}
-          {trend}%
-        </span>
+        {shouldShowTrend && (
+          <span
+            className={cn(
+              "flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0",
+              isUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600",
+              isUp ? "dark:text-emerald-400" : "dark:text-red-400",
+            )}
+          >
+            <ResponsiveIcon icon={isUp ? TrendingUp : TrendingDown} smSize={9} mdSize={11} />
+            {isUp ? "+" : ""}
+            {trend}%
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
