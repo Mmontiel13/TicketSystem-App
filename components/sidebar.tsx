@@ -75,18 +75,17 @@ import { UserAvatarEditor } from "@/components/user-avatar-editor";
 /* ─── Nav config ─────────────────────────────────────────────────────────── */
 
 const NAV_PRINCIPAL_ALL = [
+  {
+    label: "Métricas",
+    icon: BarChart2,
+    href: "/dashboard/metricas",
+    adminOnly: true,
+  },
   { 
     label: "Tickets",
     icon: CheckSquare,
     href: "/dashboard/tickets",
     adminOnly: false 
-  },
-  { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban", adminOnly: false },
-  {
-    label: "Metricas",
-    icon: BarChart2,
-    href: "/dashboard/metricas",
-    adminOnly: true,
   },
   {
     label: "Equipos",
@@ -94,11 +93,12 @@ const NAV_PRINCIPAL_ALL = [
     href: "/dashboard/equipos",
     adminOnly: true,
   },
-  
+  { label: "Kanban", icon: LayoutGrid, href: "/dashboard/kanban", adminOnly: false },
+  { label: "Notificaciones", icon: Bell, href: "/dashboard/notificaciones", adminOnly: true },
 ];
 
 const NAV_GENERAL_LINKS = [
-  { label: "Notificaciones", icon: Bell, href: "/dashboard/notificaciones", adminOnly: true },
+  
   { label: "Ayuda rápida", icon: HelpCircle, href: "/dashboard/ayuda", adminOnly: false },
   { label: "Configuración", icon: Settings, href: "/dashboard/configuracion", adminOnly: false },
 ];
