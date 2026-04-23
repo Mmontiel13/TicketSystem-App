@@ -27,21 +27,6 @@ import {
   LayoutGrid,
   UserCircle,
   PlusCircle,
-  BadgeDollarSign,
-  Computer,
-  ShoppingCart,
-  BookUser,
-  Clapperboard,
-  Car,
-  EthernetPort,
-  Siren,
-  Scale,
-  ConciergeBell,
-  Calculator,
-  Trophy,
-  PackageOpen,
-  SolarPanel,
-  HelpCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -56,27 +41,8 @@ import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { ICON_MAP } from "@/components/kanban/kanban.config";
 import type { IconUserId } from "@/components/kanban/kanban.types";
 
-export const TEAM_ICONS = [
-  { id: "BadgeDollarSign", icon: BadgeDollarSign },
-  { id: "Computer", icon: Computer },
-  { id: "ShoppingCart", icon: ShoppingCart },
-  { id: "BookUser", icon: BookUser },
-  { id: "Clapperboard", icon: Clapperboard },
-  { id: "Car", icon: Car },
-  { id: "EthernetPort", icon: EthernetPort },
-  { id: "Siren", icon: Siren },
-  { id: "Scale", icon: Scale },
-  { id: "ConciergeBell", icon: ConciergeBell },
-  { id: "Calculator", icon: Calculator },
-  { id: "Trophy", icon: Trophy },
-  { id: "PackageOpen", icon: PackageOpen },
-  { id: "SolarPanel", icon: SolarPanel },
-] as const;
-
-export function getTeamIcon(iconId: string) {
-  const iconObj = TEAM_ICONS.find(t => t.id === iconId);
-  return iconObj ? iconObj.icon : HelpCircle;
-}
+// ✅ Iconos de EQUIPO unificados
+import { getTeamIcon } from "@/lib/team-icons";
 
 /* ─── Client-only time ──────────────────────────────────────────────────── */
 
@@ -111,10 +77,13 @@ interface Ticket {
   status: TicketStatus;
   arrival_time: string;
   max_wait_minutes: number;
+
   area: string;
+  team_id: number;
+  team_icon_id?: string | null;
+
   usuario: string;
   user_id: number;
-  team_id: number;
   user_avatar_icon: IconUserId;
 }
 
@@ -130,7 +99,7 @@ interface DbTicketRow {
   user_id: number;
   is_active?: boolean;
   users?: { full_name: string; avatar_icon: IconUserId };
-  teams?: { name: string };
+  teams?: { name: string; icon_id?: string | null };
 }
 
 const PRIORITY_ORDER: Record<string, number> = { Alta: 0, Media: 1, Baja: 2 };
@@ -153,11 +122,7 @@ function StatusDropdown({
 }) {
   const [open, setOpen] = useState(false);
 
-  const OPTIONS: Ticket["status"][] = [
-    "Pendiente",
-    "En proceso",
-    "Terminada",
-  ];
+  const OPTIONS: Ticket["status"][] = ["Pendiente", "En proceso", "Terminada"];
 
   return (
     <div className="relative">
@@ -168,8 +133,9 @@ function StatusDropdown({
           "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors min-w-[120px]",
           "border-input bg-background text-foreground",
           "hover:border-ring",
-          disabled && "opacity-60 cursor-not-allowed"
+          disabled && "opacity-60 cursor-not-allowed",
         )}
+        type="button"
       >
         {value}
         <ChevronDown size={12} />
@@ -196,8 +162,9 @@ function StatusDropdown({
                   "hover:bg-accent/50",
                   value === opt
                     ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
+                type="button"
               >
                 {opt}
                 {value === opt && (
@@ -233,18 +200,12 @@ function SortableRow({
   isAdmin: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onStatusChange: (status: Ticket['status']) => void;
+  onStatusChange: (status: Ticket["status"]) => void;
   onDelete: (ticket: Ticket) => void;
   myUserId: number | null;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: ticket.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: ticket.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -254,9 +215,10 @@ function SortableRow({
 
   const expired = isExpiredAt(ticket, nowMs);
   const truncated = ticket.description.length > 60;
-  const description = isExpanded || !truncated
-    ? ticket.description
-    : `${ticket.description.slice(0, 60)}...`;
+  const description =
+    isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 60)}...`;
+
+  const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
 
   return (
     <motion.tr
@@ -286,15 +248,8 @@ function SortableRow({
       </td>
 
       <td className="px-3 py-3 max-w-55 min-w-[200px]">
-        <button
-          onClick={onToggleExpand}
-          className="text-left w-full"
-          aria-label={`Expandir descripción ${ticket.id}`}
-        >
-          <span
-            className="text-foreground text-xs block"
-            title={ticket.description}
-          >
+        <button onClick={onToggleExpand} className="text-left w-full" aria-label={`Expandir descripción ${ticket.id}`} type="button">
+          <span className="text-foreground text-xs block" title={ticket.description}>
             {description}
           </span>
           {truncated && (
@@ -310,11 +265,7 @@ function SortableRow({
       </td>
 
       <td className="px-3 py-3 min-w-[80px]">
-        <PriorityBadge
-          priority={ticket.priority}
-          expired={expired}
-          status={ticket.status}
-        />
+        <PriorityBadge priority={ticket.priority} expired={expired} status={ticket.status} />
       </td>
 
       <td className="px-3 py-3 min-w-[100px]">
@@ -327,11 +278,7 @@ function SortableRow({
 
       <td className="px-3 py-3 min-w-[120px]">
         {isAdmin ? (
-          <StatusDropdown
-            value={ticket.status}
-            onChange={onStatusChange}
-            disabled={expired}
-          />
+          <StatusDropdown value={ticket.status} onChange={onStatusChange} disabled={expired} />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
@@ -341,9 +288,10 @@ function SortableRow({
         <ClientTime iso={ticket.arrival_time} />
       </td>
 
+      {/* ✅ Área con icono de EQUIPO unificado */}
       <td className="px-3 py-3 min-w-[100px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
-          <Users size={12} className="text-muted-foreground" />
+          <TeamIcon size={14} className="text-muted-foreground" />
           {ticket.area}
         </span>
       </td>
@@ -390,15 +338,16 @@ function MobileTicketCard({
   isAdmin: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onStatusChange: (status: Ticket['status']) => void;
+  onStatusChange: (status: Ticket["status"]) => void;
   onDelete: (ticket: Ticket) => void;
   myUserId: number | null;
 }) {
   const expired = isExpiredAt(ticket, nowMs);
   const truncated = ticket.description.length > 80;
-  const description = isExpanded || !truncated
-    ? ticket.description
-    : `${ticket.description.slice(0, 80)}...`;
+  const description =
+    isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 80)}...`;
+
+  const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
 
   return (
     <motion.div
@@ -410,36 +359,22 @@ function MobileTicketCard({
       className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3"
     >
       <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={onToggleExpand}
-          className="text-left flex-1"
-          aria-label={`Expandir descripción ${ticket.id}`}
-        >
-          <p className="text-foreground text-sm leading-relaxed">
-            {description}
-          </p>
+        <button onClick={onToggleExpand} className="text-left flex-1" aria-label={`Expandir descripción ${ticket.id}`} type="button">
+          <p className="text-foreground text-sm leading-relaxed">{description}</p>
           {truncated && (
             <span className="text-[10px] text-muted-foreground">
               {isExpanded ? "Mostrar menos" : "Mostrar más"}
             </span>
           )}
         </button>
-        <PriorityBadge
-          priority={ticket.priority}
-          expired={expired}
-          status={ticket.status}
-        />
+        <PriorityBadge priority={ticket.priority} expired={expired} status={ticket.status} />
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <TypeIcon type={ticket.type} />
 
         {isAdmin ? (
-          <StatusDropdown
-            value={ticket.status}
-            onChange={onStatusChange}
-            disabled={expired}
-          />
+          <StatusDropdown value={ticket.status} onChange={onStatusChange} disabled={expired} />
         ) : (
           <StatusBadge status={ticket.status} />
         )}
@@ -456,8 +391,9 @@ function MobileTicketCard({
       />
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {/* ✅ Área con icono de EQUIPO unificado */}
         <span className="flex items-center gap-1">
-          <Users size={11} />
+          <TeamIcon size={12} />
           {ticket.area}
         </span>
         <span className="flex items-center gap-1">
@@ -498,7 +434,9 @@ export function TicketsView() {
   const [nowMs, setNowMs] = useState(0);
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [myTeamId, setMyTeamId] = useState<number | null>(null);
-  const [areaMembers, setAreaMembers] = useState<{ id: number; full_name: string; avatar_icon?: string }[]>([]);
+  const [areaMembers, setAreaMembers] = useState<
+    { id: number; full_name: string; avatar_icon?: string }[]
+  >([]);
   const [loading, setLoading] = useState(false);
 
   // ✅ Estados para el modal de confirmación de eliminación
@@ -523,8 +461,7 @@ export function TicketsView() {
 
   // Filter
   const filtered = tickets.filter((t) => {
-    if (tab === "Pendientes")
-      return t.status === "Pendiente" || t.status === "En proceso";
+    if (tab === "Pendientes") return t.status === "Pendiente" || t.status === "En proceso";
     if (tab === "Completados") return t.status === "Terminada";
     return true;
   });
@@ -534,9 +471,7 @@ export function TicketsView() {
     if (sortKey === "prioridad")
       return (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3);
     if (sortKey === "llegada")
-      return (
-        new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime()
-      );
+      return new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime();
     return 0;
   });
 
@@ -607,16 +542,14 @@ export function TicketsView() {
     try {
       let query = supabase
         .from("tickets")
-        .select("*, users(full_name, avatar_icon), teams(name)")
+        // ✅ Traer teams.icon_id para pintar icono de equipo
+        .select("*, users(full_name, avatar_icon), teams(name, icon_id)")
         .eq("is_active", true)
         .order("arrival_time", { ascending: false });
 
       if (!isAdminUser) {
-        if (teamId) {
-          query = query.eq("team_id", teamId);
-        } else {
-          query = query.eq("team_id", -1);
-        }
+        if (teamId) query = query.eq("team_id", teamId);
+        else query = query.eq("team_id", -1);
       }
 
       const { data, error } = await query;
@@ -626,7 +559,7 @@ export function TicketsView() {
         return;
       }
 
-      const mapped = (data ?? []).map((row) => ({
+      const mapped = (data ?? []).map((row: DbTicketRow) => ({
         id: `TK-${String(row.id).padStart(3, "0")}`,
         dbId: row.id,
         description: row.description,
@@ -635,12 +568,15 @@ export function TicketsView() {
         status: row.status,
         arrival_time: row.arrival_time,
         max_wait_minutes: row.max_wait_minutes,
+
         area: row.teams?.name ?? "",
+        team_id: row.team_id,
+        team_icon_id: row.teams?.icon_id ?? null,
+
         usuario: row.users?.full_name ?? "",
         user_id: row.user_id,
-        team_id: row.team_id,
         user_avatar_icon: row.users?.avatar_icon ?? "Users",
-      } as Ticket));
+      }));
 
       setTickets(mapped);
     } finally {
@@ -692,6 +628,7 @@ export function TicketsView() {
 
   useEffect(() => {
     loadCurrentUserAndTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role]);
 
   const handleStatusChange = async (ticketId: string, nextStatus: Ticket["status"]) => {
@@ -721,9 +658,7 @@ export function TicketsView() {
       return;
     }
 
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)),
-    );
+    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)));
   };
 
   const handleAddTicket = async (data: {
@@ -783,7 +718,6 @@ export function TicketsView() {
     }
   };
 
-  // ✅ Ahora abre el modal de confirmación en lugar de eliminar directo
   const handleDeleteTicket = (ticket: Ticket) => {
     if (!isAdmin && ticket.user_id !== myUserId) {
       toast({
@@ -795,7 +729,6 @@ export function TicketsView() {
     setConfirmDelete(ticket);
   };
 
-  // ✅ Se ejecuta cuando el usuario confirma en el modal
   const confirmDeleteTicket = async () => {
     if (!confirmDelete) return;
 
@@ -841,6 +774,7 @@ export function TicketsView() {
           whileTap={{ scale: 0.97 }}
           onClick={() => setModalOpen(true)}
           className="absolute right-4 md:right-8 sm:relative sm:right-auto flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors"
+          type="button"
         >
           <PlusCircle size={15} />
           <span className="hidden sm:inline">Crear nuevo</span>
@@ -860,8 +794,11 @@ export function TicketsView() {
               }}
               className={cn(
                 "px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors",
-                tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                tab === t
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
+              type="button"
             >
               {t}
             </button>
@@ -872,6 +809,7 @@ export function TicketsView() {
           <button
             onClick={() => setSortOpen((o) => !o)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card/80 text-foreground text-sm hover:border-ring transition-colors"
+            type="button"
           >
             <ChevronDown size={13} />
             <span className="hidden sm:inline">Ordenar: {SORT_LABELS[sortKey]}</span>
@@ -889,9 +827,7 @@ export function TicketsView() {
               >
                 <div className="px-3 py-2 flex items-center justify-between border-b border-border">
                   <ChevronDown size={12} className="text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    Ordenar: {SORT_LABELS[sortKey]}
-                  </span>
+                  <span className="text-xs text-muted-foreground">Ordenar: {SORT_LABELS[sortKey]}</span>
                 </div>
                 {(["prioridad", "llegada"] as SortKey[]).map((k) => (
                   <button
@@ -905,11 +841,10 @@ export function TicketsView() {
                       "hover:bg-accent/50",
                       sortKey === k ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                     )}
+                    type="button"
                   >
                     {SORT_LABELS[k]}
-                    {sortKey === k && (
-                      <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
-                    )}
+                    {sortKey === k && <span className="w-1 h-4 rounded-full bg-foreground inline-block" />}
                   </button>
                 ))}
               </motion.div>
@@ -922,11 +857,7 @@ export function TicketsView() {
       <div className="hidden md:block flex-1 px-8 overflow-auto">
         <div className="rounded-xl border border-border overflow-visible relative">
           {mounted ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted">
@@ -985,17 +916,11 @@ export function TicketsView() {
                   </tr>
                 </thead>
 
-                <SortableContext
-                  items={pageData.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
+                <SortableContext items={pageData.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                   <tbody>
                     {pageData.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={11}
-                          className="px-4 py-10 text-center text-muted-foreground text-sm"
-                        >
+                        <td colSpan={11} className="px-4 py-10 text-center text-muted-foreground text-sm">
                           No hay tickets en esta categoría.
                         </td>
                       </tr>
@@ -1072,6 +997,7 @@ export function TicketsView() {
           disabled={page === 0}
           className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Página anterior"
+          type="button"
         >
           <ChevronDown size={14} className="rotate-90" />
         </button>
@@ -1085,17 +1011,13 @@ export function TicketsView() {
           disabled={page >= totalPages - 1}
           className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Página siguiente"
+          type="button"
         >
           <ChevronDown size={14} className="-rotate-90" />
         </button>
       </div>
 
-      <CreateTicketModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onAdd={handleAddTicket}
-        members={areaMembers}
-      />
+      <CreateTicketModal open={modalOpen} onClose={() => setModalOpen(false)} onAdd={handleAddTicket} members={areaMembers} />
 
       {/* ✅ Modal de confirmación para eliminar ticket */}
       <ConfirmDeleteModal

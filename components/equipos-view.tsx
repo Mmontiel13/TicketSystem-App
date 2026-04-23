@@ -4,81 +4,29 @@ import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Users,
-  ShoppingCart,
   Plus,
   Pencil,
-  Ghost,
-  Rose,
-  Rabbit,
-  Fish,
-  Cat,
-  Car,
-  BookUser,
-  BadgeDollarSign,
-  Computer,
-  EthernetPort,
-  Siren,
-  Scale,
-  ConciergeBell,
-  Calculator,
-  Trophy,
-  PackageOpen,
-  Clapperboard,
-  SolarPanel,
-  VenetianMask,
-  Volleyball,
-  Donut,
-  Skull,
-  HandMetal,
-  Sticker,
-  Biohazard,
   Trash2,
   X,
-  ChevronLeft,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/lib/user-context";
+import { useUser, type IconUserId } from "@/lib/user-context";
+import { USER_ICON_MAP, getUserIcon } from "@/lib/user-icons";
+import { TEAM_ICONS, type TeamIconId, getTeamIcon } from "@/lib/team-icons";
 import { ResponsiveIcon } from "@/components/responsive-icon";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 
 /* ─── Icon picker config ─────────────────────────────────────────────────── */
 
-const TEAM_ICONS = [
-  { id: "BadgeDollarSign", icon: BadgeDollarSign },
-  { id: "Computer", icon: Computer },
-  { id: "ShoppingCart", icon: ShoppingCart },
-  { id: "BookUser", icon: BookUser },
-  { id: "Clapperboard", icon: Clapperboard },
-  { id: "Car", icon: Car },
-  { id: "EthernetPort", icon: EthernetPort },
-  { id: "Siren", icon: Siren },
-  { id: "Scale", icon: Scale },
-  { id: "ConciergeBell", icon: ConciergeBell },
-  { id: "Calculator", icon: Calculator },
-  { id: "Trophy", icon: Trophy },
-  { id: "PackageOpen", icon: PackageOpen },
-  { id: "SolarPanel", icon: SolarPanel },
-] as const;
+// ✅ Lista de iconos de usuario (para picker) desde el mapa unificado
+const USER_ICON_LIST = Object.entries(USER_ICON_MAP).map(([id, icon]) => ({
+  id: id as IconUserId,
+  icon,
+}));
 
-const USER_ICONS = [
-  { id: "Ghost", icon: Ghost },
-  { id: "Rose", icon: Rose },
-  { id: "Rabbit", icon: Rabbit },
-  { id: "Skull", icon: Skull },
-  { id: "Fish", icon: Fish },
-  { id: "Cat", icon: Cat },
-  { id: "VenetianMask", icon: VenetianMask },
-  { id: "Volleyball", icon: Volleyball },
-  { id: "Donut", icon: Donut },
-  { id: "Hand-metal", icon: HandMetal },
-  { id: "Sticker", icon: Sticker },
-  { id: "Biohazard", icon: Biohazard },
-] as const;
-
-type IconId = (typeof TEAM_ICONS)[number]["id"];
-type IconUserId = (typeof USER_ICONS)[number]["id"];
+type IconId = TeamIconId;
 
 type EditingUser = {
   id: string | number;
@@ -86,14 +34,6 @@ type EditingUser = {
   email: string;
   avatar_icon: IconUserId;
 };
-
-function iconById(id: IconId) {
-  return TEAM_ICONS.find((i) => i.id === id)?.icon ?? Users;
-}
-
-function iconByUserId(id: IconUserId) {
-  return USER_ICONS.find((i) => i.id === id)?.icon ?? Users;
-}
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
@@ -156,7 +96,7 @@ function IconPicker({
             "w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center border transition-colors",
             selected === id
               ? "bg-primary text-primary-foreground border-border"
-              : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent"
+              : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent",
           )}
           aria-label={id}
           aria-pressed={selected === id}
@@ -180,7 +120,9 @@ function TeamModal({
   onSave: () => Promise<void>;
 }) {
   const [teamName, setTeamName] = useState(initial?.area ?? "");
-  const [selectedIcon, setSelectedIcon] = useState<IconId>(initial?.iconId ?? "BadgeDollarSign");
+  const [selectedIcon, setSelectedIcon] = useState<IconId>(
+    initial?.iconId ?? "BadgeDollarSign",
+  );
   const [isSaving, setIsSaving] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const isEdit = !!initial;
@@ -224,11 +166,7 @@ function TeamModal({
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden="true" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
@@ -245,6 +183,7 @@ function TeamModal({
           onClick={onClose}
           className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar"
+          type="button"
         >
           <X size={16} />
         </button>
@@ -260,7 +199,7 @@ function TeamModal({
         <div className="flex flex-col items-center mb-5 gap-2">
           <div className="w-16 h-16 rounded-xl border border-border bg-muted flex items-center justify-center">
             {(() => {
-              const Icon = iconById(selectedIcon);
+              const Icon = getTeamIcon(selectedIcon);
               return <Icon size={30} className="text-foreground" />;
             })()}
           </div>
@@ -300,10 +239,16 @@ function TeamModal({
 
 /* ─── User Icon Picker ──────────────────────────────────────────────────── */
 
-function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect: (id: IconUserId) => void }) {
+function UserIconPicker({
+  selected,
+  onSelect,
+}: {
+  selected: IconUserId;
+  onSelect: (id: IconUserId) => void;
+}) {
   return (
     <div className="grid grid-cols-6 sm:grid-cols-6 gap-1.5">
-      {USER_ICONS.map(({ id, icon: Icon }) => (
+      {USER_ICON_LIST.map(({ id, icon: Icon }) => (
         <button
           key={id}
           type="button"
@@ -312,7 +257,7 @@ function UserIconPicker({ selected, onSelect }: { selected: IconUserId; onSelect
             "w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center border transition-colors",
             selected === id
               ? "bg-primary text-primary-foreground border-border"
-              : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent"
+              : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-accent",
           )}
           aria-label={id}
           aria-pressed={selected === id}
@@ -357,7 +302,11 @@ function AddMemberModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; icon?: string }>({});
 
-  const isValid = memberName.trim() && memberEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim()) && selectedIcon;
+  const isValid =
+    memberName.trim() &&
+    memberEmail.trim() &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim()) &&
+    selectedIcon;
 
   async function handleSubmit() {
     const newErrors: { name?: string; email?: string; icon?: string } = {};
@@ -466,11 +415,7 @@ function AddMemberModal({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden="true" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
@@ -487,6 +432,7 @@ function AddMemberModal({
           onClick={onClose}
           className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar"
+          type="button"
         >
           <X size={16} />
         </button>
@@ -535,7 +481,7 @@ function AddMemberModal({
               "mb-3 rounded-md px-3 py-2 text-sm border",
               isSuccess
                 ? "bg-green-500/10 text-green-700 dark:text-green-300 border-green-600/30 dark:border-green-700/50"
-                : "bg-destructive/10 text-destructive border-destructive/30"
+                : "bg-destructive/10 text-destructive border-destructive/30",
             )}
           >
             {feedback}
@@ -601,7 +547,7 @@ function TeamCard({
   active: boolean;
   onClick: () => void;
 }) {
-  const Icon = iconById(team.iconId);
+  const Icon = getTeamIcon(team.iconId);
 
   return (
     <motion.button
@@ -610,7 +556,7 @@ function TeamCard({
       className={cn(
         "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 rounded-lg border text-left transition-colors gap-2",
         "border-border bg-card hover:bg-accent/60",
-        active && "bg-accent"
+        active && "bg-accent",
       )}
       type="button"
     >
@@ -655,7 +601,7 @@ function TeamDetailPane({
   isSavingMember?: boolean;
   onClose?: () => void;
 }) {
-  const Icon = iconById(team.iconId);
+  const Icon = getTeamIcon(team.iconId);
 
   return (
     <div className="h-full rounded-lg border border-border p-3 sm:p-5 flex flex-col bg-card min-h-0">
@@ -665,6 +611,7 @@ function TeamDetailPane({
           onClick={onClose}
           className={cn(closeButtonClass, "absolute top-2 right-2 sm:hidden")}
           aria-label="Cerrar panel"
+          type="button"
         >
           <X size={16} />
         </button>
@@ -712,7 +659,7 @@ function TeamDetailPane({
           {team.members
             .filter((m) => m.isActive)
             .map((m) => {
-              const IconUser = iconByUserId(m.iconId);
+              const IconUser = getUserIcon(m.iconId);
               return (
                 <div
                   key={m.id}
@@ -830,18 +777,18 @@ export function EquiposView() {
       }
 
       const membersByTeam = new Map<number, TeamMember[]>();
-      usersResult.data?.forEach((user) => {
-        if (!user.team_id) return;
-        const existing = membersByTeam.get(user.team_id) ?? [];
-        membersByTeam.set(user.team_id, [
+      usersResult.data?.forEach((userRow) => {
+        if (!userRow.team_id) return;
+        const existing = membersByTeam.get(userRow.team_id) ?? [];
+        membersByTeam.set(userRow.team_id, [
           ...existing,
           {
-            id: user.id,
-            name: user.full_name,
-            full_name: user.full_name,
-            email: user.email,
-            iconId: (user.avatar_icon as IconUserId) || "Ghost",
-            role: (user.role as "user" | "admin") || "user",
+            id: userRow.id,
+            name: userRow.full_name,
+            full_name: userRow.full_name,
+            email: userRow.email,
+            iconId: (userRow.avatar_icon as IconUserId) || "Ghost",
+            role: (userRow.role as "user" | "admin") || "user",
             isActive: true,
             deletedAt: null,
           },
@@ -849,12 +796,12 @@ export function EquiposView() {
       });
 
       if (teamsResult.data) {
-        const normalized = teamsResult.data.map((team) => ({
-          id: team.id,
-          name: team.name ?? "",
-          area: team.name ?? "",
-          iconId: (team.icon_id as IconId) || "BadgeDollarSign",
-          members: membersByTeam.get(team.id) ?? [],
+        const normalized = teamsResult.data.map((teamRow) => ({
+          id: teamRow.id,
+          name: teamRow.name ?? "",
+          area: teamRow.name ?? "",
+          iconId: (teamRow.icon_id as IconId) || "BadgeDollarSign",
+          members: membersByTeam.get(teamRow.id) ?? [],
         }));
 
         setTeams(normalized);
@@ -905,7 +852,12 @@ export function EquiposView() {
     }
   }
 
-  async function handleUpdateMember(userId: string | number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; message: string }> {
+  async function handleUpdateMember(
+    userId: string | number,
+    memberName: string,
+    memberEmail: string,
+    memberIcon: IconUserId,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const { error } = await supabase
         .from("users")
@@ -919,7 +871,7 @@ export function EquiposView() {
 
       if (error) {
         console.error("Error al actualizar miembro", error);
-        if (error.code === "23505") {
+        if ((error as any).code === "23505") {
           return { success: false, message: "Este correo ya está registrado en otro usuario." };
         }
         return { success: false, message: "Error al actualizar miembro. Revisa la consola." };
@@ -934,7 +886,12 @@ export function EquiposView() {
     }
   }
 
-  async function handleMemberAdded(teamId: number, memberName: string, memberEmail: string, memberIcon: IconUserId): Promise<{ success: boolean; password?: string; message: string }> {
+  async function handleMemberAdded(
+    teamId: number,
+    memberName: string,
+    memberEmail: string,
+    memberIcon: IconUserId,
+  ): Promise<{ success: boolean; password?: string; message: string }> {
     setIsSavingMember(true);
     setStatusMessage(null);
 

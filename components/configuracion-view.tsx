@@ -5,7 +5,8 @@ import { Lock, Mail, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
-import { UserAvatarEditor, userIconById } from "@/components/user-avatar-editor";
+import { UserAvatarEditor } from "@/components/user-avatar-editor";
+import { getUserIcon } from "@/lib/user-icons";
 import {
   Dialog,
   DialogContent,
@@ -96,7 +97,8 @@ export default function ConfiguracionView() {
     }
   }
 
-  const UserIcon = userIconById(user.iconId || "Users");
+  // ✅ Unificado: usar el resolver central de iconos
+  const UserIcon = getUserIcon(user.iconId);
 
   return (
     <div className="flex flex-col h-full">
@@ -127,7 +129,9 @@ export default function ConfiguracionView() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">Avatar actual</p>
-              <p className="text-foreground font-medium mt-1">{user.name || user.email}</p>
+              <p className="text-foreground font-medium mt-1">
+                {user.name || user.email}
+              </p>
             </div>
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -169,7 +173,9 @@ export default function ConfiguracionView() {
                 Equipo
               </label>
               <div className="mt-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
-                <p className="text-foreground text-sm">{teamName || "Sin equipo asignado"}</p>
+                <p className="text-foreground text-sm">
+                  {teamName || "Sin equipo asignado"}
+                </p>
               </div>
             </div>
 
@@ -191,7 +197,7 @@ export default function ConfiguracionView() {
         </motion.div>
 
         {/* Security Section comentado temporalmente */}
-        {/* 
+        {/*
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,27 +208,7 @@ export default function ConfiguracionView() {
             <Lock size={18} />
             Seguridad
           </h2>
-
-          
-          <div className="mb-4">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Contraseña
-            </label>
-            <div className="mt-2 flex items-center gap-3">
-              <div className="flex-1 px-3 py-2 rounded-lg bg-muted/50 border border-border">
-                <p className="text-foreground text-sm">••••••••</p>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setChangePasswordOpen(true)}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors whitespace-nowrap"
-              >
-                Cambiar
-              </motion.button>
-            </div>
-          </div>
-        </motion.div> 
+        </motion.div>
         */}
       </div>
 
@@ -235,7 +221,9 @@ export default function ConfiguracionView() {
               Selecciona un nuevo icono para tu avatar.
             </DialogDescription>
           </DialogHeader>
+
           <UserAvatarEditor showTitle={false} />
+
           <DialogFooter>
             <button
               onClick={() => setAvatarModalOpen(false)}
@@ -260,7 +248,10 @@ export default function ConfiguracionView() {
           <div className="space-y-4 py-4">
             {/* Current Password */}
             <div>
-              <label htmlFor="current-password" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="current-password"
+                className="text-sm font-medium text-foreground"
+              >
                 Contraseña Actual
               </label>
               <input
@@ -268,7 +259,7 @@ export default function ConfiguracionView() {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
             </div>
@@ -283,14 +274,17 @@ export default function ConfiguracionView() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="confirm-password" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="confirm-password"
+                className="text-sm font-medium text-foreground"
+              >
                 Confirmar Nueva Contraseña
               </label>
               <input
@@ -298,7 +292,7 @@ export default function ConfiguracionView() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
             </div>
