@@ -3,11 +3,13 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import { motion } from "framer-motion";
-import { GripVertical, UserCircle } from "lucide-react";
+import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RemainingBar, PriorityBadge, StatusBadge, TypeIcon } from "@/components/ticket-cells";
-import { ICON_MAP } from "@/components/kanban/kanban.config";
 import { getTeamIcon } from "@/lib/team-icons";
+import { getUserIcon } from "@/lib/user-icons";
+import type { IconUserId } from "@/lib/user-context";
+
 import type { Ticket } from "../tickets.types";
 import { isExpiredAt } from "../tickets.types";
 import { ClientTime } from "./ClientTime";
@@ -51,6 +53,7 @@ export function SortableRow({
     isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 60)}...`;
 
   const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
+  const UserIcon = getUserIcon(ticket.user_avatar_icon as IconUserId);
 
   return (
     <motion.tr
@@ -134,10 +137,7 @@ export function SortableRow({
 
       <td className="px-3 py-3 min-w-[120px]">
         <span className="flex items-center gap-1.5 text-xs text-foreground">
-          {(() => {
-            const UserIcon = ICON_MAP[ticket.user_avatar_icon] || UserCircle;
-            return <UserIcon size={14} className="text-muted-foreground" />;
-          })()}
+          <UserIcon size={14} className="text-muted-foreground" />
           {ticket.usuario}
         </span>
       </td>

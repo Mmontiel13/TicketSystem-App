@@ -1,0 +1,1 @@
+export { EquiposView } from "./equipos-view";

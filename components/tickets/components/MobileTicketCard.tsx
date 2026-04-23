@@ -1,9 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { UserCircle } from "lucide-react";
 import { RemainingBar, PriorityBadge, StatusBadge, TypeIcon } from "@/components/ticket-cells";
 import { getTeamIcon } from "@/lib/team-icons";
+import { getUserIcon } from "@/lib/user-icons";
+import type { IconUserId } from "@/lib/user-context";
+
 import type { Ticket } from "../tickets.types";
 import { isExpiredAt } from "../tickets.types";
 import { ClientTime } from "./ClientTime";
@@ -34,6 +36,7 @@ export function MobileTicketCard({
     isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 80)}...`;
 
   const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
+  const UserIcon = getUserIcon(ticket.user_avatar_icon as IconUserId);
 
   return (
     <motion.div
@@ -86,8 +89,9 @@ export function MobileTicketCard({
           <TeamIcon size={12} />
           {ticket.area}
         </span>
+
         <span className="flex items-center gap-1">
-          <UserCircle size={11} />
+          <UserIcon size={11} />
           {ticket.usuario}
         </span>
       </div>

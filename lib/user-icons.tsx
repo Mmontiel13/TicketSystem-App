@@ -23,7 +23,6 @@ export const USER_ICON_MAP: Record<IconUserId, React.ElementType> = {
   Ghost,
   Rose,
   Rabbit,
-  Users: UserCircle,
   Fish,
   Cat,
   Skull,
@@ -33,6 +32,7 @@ export const USER_ICON_MAP: Record<IconUserId, React.ElementType> = {
   HandMetal,
   Sticker,
   Biohazard,
+  Users: UserCircle,
 };
 
 export function getUserIcon(iconId?: IconUserId): React.ElementType {
