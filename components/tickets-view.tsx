@@ -1,417 +1,181 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
+
 import {
   DndContext,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
-  closestCenter,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
   arrayMove,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
-  GripVertical,
-  Users,
   Clock,
   LayoutGrid,
-  UserCircle,
   PlusCircle,
+  UserCircle,
+  Users,
 } from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  RemainingBar,
-  PriorityBadge,
-  StatusBadge,
-  TypeIcon,
-} from "@/components/ticket-cells";
+
 import { CreateTicketModal } from "@/components/create-ticket-modal";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
-import { ICON_MAP } from "@/components/kanban/kanban.config";
-import type { IconUserId } from "@/components/kanban/kanban.types";
 
-// ✅ Iconos de EQUIPO unificados
-import { getTeamIcon } from "@/lib/team-icons";
+import type {
+  DbTicketRow,
+  SortKey,
+  Tab,
+  Ticket,
+  TicketType,
+} from "@/components/tickets/tickets.types";
+import { PRIORITY_ORDER, isExpiredAt } from "@/components/tickets/tickets.types";
 
-/* ─── Client-only time ──────────────────────────────────────────────────── */
+import { SortableRow } from "@/components/tickets/components/SortableRow";
+import { MobileTicketCard } from "@/components/tickets/components/MobileTicketCard";
 
-function ClientTime({ iso }: { iso: string }) {
+/* ─── Dropdown en Portal (soluciona z-index/stacking-context) ─────────── */
+
+function SortDropdownPortal(props: {
+  open: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  sortKey: SortKey;
+  labels: Record<SortKey, string>;
+  onSelect: (k: SortKey) => void;
+  onClose: () => void;
+}) {
+  const { open, anchorRef, sortKey, labels, onSelect, onClose } = props;
+
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  if (!mounted) return null;
+  const [pos, setPos] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
-  const d = new Date(iso);
-  let h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, "0");
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return <>{`${h}:${m}${ampm}`}</>;
-}
+  useEffect(() => setMounted(true), []);
 
-type Tab = "Todos" | "Pendientes" | "Completados";
-type SortKey = "default" | "prioridad" | "llegada";
-
-type TicketType = "computo" | "impresora" | "red" | "crm" | "programas" | "otro";
-type TicketStatus = "Pendiente" | "En proceso" | "Terminada";
-type TicketPriority = "Alta" | "Media" | "Baja" | "Vencido";
-
-interface Ticket {
-  id: string;
-  dbId: number;
-  description: string;
-  type: TicketType;
-  priority: TicketPriority;
-  status: TicketStatus;
-  arrival_time: string;
-  max_wait_minutes: number;
-
-  area: string;
-  team_id: number;
-  team_icon_id?: string | null;
-
-  usuario: string;
-  user_id: number;
-  user_avatar_icon: IconUserId;
-}
-
-interface DbTicketRow {
-  id: number;
-  description: string;
-  type: TicketType;
-  priority: TicketPriority;
-  status: TicketStatus;
-  arrival_time: string;
-  max_wait_minutes: number;
-  team_id: number;
-  user_id: number;
-  is_active?: boolean;
-  users?: { full_name: string; avatar_icon: IconUserId };
-  teams?: { name: string; icon_id?: string | null };
-}
-
-const PRIORITY_ORDER: Record<string, number> = { Alta: 0, Media: 1, Baja: 2 };
-
-function isExpiredAt(ticket: Ticket, nowMs: number): boolean {
-  const elapsed = nowMs - new Date(ticket.arrival_time).getTime();
-  return elapsed >= ticket.max_wait_minutes * 60 * 1000;
-}
-
-/* ─── Status dropdown for mobile ────────────────────────────────────────── */
-
-function StatusDropdown({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: Ticket["status"];
-  onChange: (v: Ticket["status"]) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const OPTIONS: Ticket["status"][] = ["Pendiente", "En proceso", "Terminada"];
-
-  return (
-    <div className="relative">
-      <button
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors min-w-[120px]",
-          "border-input bg-background text-foreground",
-          "hover:border-ring",
-          disabled && "opacity-60 cursor-not-allowed",
-        )}
-        type="button"
-      >
-        {value}
-        <ChevronDown size={12} />
-      </button>
-
-      <AnimatePresence>
-        {open && !disabled && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 mt-1 w-full rounded-xl border border-border bg-popover z-50 overflow-hidden shadow-lg"
-          >
-            {OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
-                  "hover:bg-accent/50",
-                  value === opt
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                type="button"
-              >
-                {opt}
-                {value === opt && (
-                  <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
-                )}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ─── Sortable table row ──────────────────────────────────────────────────── */
-
-function SortableRow({
-  ticket,
-  selected,
-  onToggle,
-  nowMs,
-  isAdmin,
-  isExpanded,
-  onToggleExpand,
-  onStatusChange,
-  onDelete,
-  myUserId,
-}: {
-  ticket: Ticket;
-  selected: boolean;
-  onToggle: () => void;
-  nowMs: number;
-  isAdmin: boolean;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onStatusChange: (status: Ticket["status"]) => void;
-  onDelete: (ticket: Ticket) => void;
-  myUserId: number | null;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: ticket.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 0.8,
+  const updatePosition = () => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // Posiciona debajo del botón, alineado a la derecha del botón (como tu absolute right-0)
+    const top = r.bottom + 6; // mt-1 aprox
+    const width = 176; // w-44 = 11rem = 176px
+    const left = Math.max(8, r.right - width); // alinear derecha, con margen mínimo
+    setPos({ top, left, width });
   };
 
-  const expired = isExpiredAt(ticket, nowMs);
-  const truncated = ticket.description.length > 60;
-  const description =
-    isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 60)}...`;
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
 
-  const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
+    const onResize = () => updatePosition();
+    const onScroll = () => updatePosition();
+    window.addEventListener("resize", onResize);
+    // capturamos scroll también dentro de contenedores
+    window.addEventListener("scroll", onScroll, true);
 
-  return (
-    <motion.tr
-      ref={setNodeRef}
-      style={style}
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: isDragging ? 0.4 : 1 }}
-      className={cn(
-        "border-b border-border/60 transition-colors",
-        selected ? "bg-accent/40" : "hover:bg-accent/50",
-      )}
-      {...attributes}
-    >
-      <td className="px-3 py-3 cursor-grab" {...listeners}>
-        <GripVertical size={14} className="text-muted-foreground" />
-      </td>
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-      <td className="px-2 py-3">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          className="accent-[color:var(--color-primary)]"
-          aria-label={`Seleccionar ${ticket.id}`}
-        />
-      </td>
+  useEffect(() => {
+    if (!open) return;
 
-      <td className="px-3 py-3 max-w-55 min-w-[200px]">
-        <button onClick={onToggleExpand} className="text-left w-full" aria-label={`Expandir descripción ${ticket.id}`} type="button">
-          <span className="text-foreground text-xs block" title={ticket.description}>
-            {description}
-          </span>
-          {truncated && (
-            <span className="text-[10px] text-muted-foreground">
-              {isExpanded ? "Mostrar menos" : "Mostrar más"}
-            </span>
-          )}
-        </button>
-      </td>
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
 
-      <td className="px-3 py-3 min-w-[80px]">
-        <TypeIcon type={ticket.type} />
-      </td>
+    const onPointerDown = (e: PointerEvent) => {
+      const panel = panelRef.current;
+      const anchor = anchorRef.current;
+      const target = e.target as Node | null;
 
-      <td className="px-3 py-3 min-w-[80px]">
-        <PriorityBadge priority={ticket.priority} expired={expired} status={ticket.status} />
-      </td>
+      if (!target) return;
 
-      <td className="px-3 py-3 min-w-[100px]">
-        <RemainingBar
-          arrivalTime={ticket.arrival_time}
-          maxWaitMinutes={ticket.max_wait_minutes}
-          status={ticket.status}
-        />
-      </td>
+      // Si clickeas dentro del panel o del botón, no cerrar
+      if (panel?.contains(target)) return;
+      if (anchor?.contains(target)) return;
 
-      <td className="px-3 py-3 min-w-[120px]">
-        {isAdmin ? (
-          <StatusDropdown value={ticket.status} onChange={onStatusChange} disabled={expired} />
-        ) : (
-          <StatusBadge status={ticket.status} />
-        )}
-      </td>
+      onClose();
+    };
 
-      <td className="px-3 py-3 text-foreground text-xs tabular-nums whitespace-nowrap min-w-[80px]">
-        <ClientTime iso={ticket.arrival_time} />
-      </td>
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
 
-      {/* ✅ Área con icono de EQUIPO unificado */}
-      <td className="px-3 py-3 min-w-[100px]">
-        <span className="flex items-center gap-1.5 text-xs text-foreground">
-          <TeamIcon size={14} className="text-muted-foreground" />
-          {ticket.area}
-        </span>
-      </td>
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open, onClose, anchorRef]);
 
-      <td className="px-3 py-3 min-w-[120px]">
-        <span className="flex items-center gap-1.5 text-xs text-foreground">
-          {(() => {
-            const UserIcon = ICON_MAP[ticket.user_avatar_icon] || UserCircle;
-            return <UserIcon size={14} className="text-muted-foreground" />;
-          })()}
-          {ticket.usuario}
-        </span>
-      </td>
+  if (!mounted) return null;
 
-      <td className="px-3 py-3 min-w-[80px]">
-        {(isAdmin || ticket.user_id === myUserId) && (
-          <button
-            type="button"
-            onClick={() => onDelete(ticket)}
-            className="text-xs text-destructive hover:text-destructive/80 transition-colors"
-          >
-            Eliminar
-          </button>
-        )}
-      </td>
-    </motion.tr>
-  );
-}
-
-/* ─── Mobile ticket card ──────────────────────────────────────────────────── */
-
-function MobileTicketCard({
-  ticket,
-  nowMs,
-  isAdmin,
-  isExpanded,
-  onToggleExpand,
-  onStatusChange,
-  onDelete,
-  myUserId,
-}: {
-  ticket: Ticket;
-  nowMs: number;
-  isAdmin: boolean;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onStatusChange: (status: Ticket["status"]) => void;
-  onDelete: (ticket: Ticket) => void;
-  myUserId: number | null;
-}) {
-  const expired = isExpiredAt(ticket, nowMs);
-  const truncated = ticket.description.length > 80;
-  const description =
-    isExpanded || !truncated ? ticket.description : `${ticket.description.slice(0, 80)}...`;
-
-  const TeamIcon = getTeamIcon(ticket.team_icon_id ?? undefined);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      whileHover={{ scale: 1.01 }}
-      className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <button onClick={onToggleExpand} className="text-left flex-1" aria-label={`Expandir descripción ${ticket.id}`} type="button">
-          <p className="text-foreground text-sm leading-relaxed">{description}</p>
-          {truncated && (
-            <span className="text-[10px] text-muted-foreground">
-              {isExpanded ? "Mostrar menos" : "Mostrar más"}
-            </span>
-          )}
-        </button>
-        <PriorityBadge priority={ticket.priority} expired={expired} status={ticket.status} />
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <TypeIcon type={ticket.type} />
-
-        {isAdmin ? (
-          <StatusDropdown value={ticket.status} onChange={onStatusChange} disabled={expired} />
-        ) : (
-          <StatusBadge status={ticket.status} />
-        )}
-
-        <span className="text-foreground text-xs tabular-nums">
-          <ClientTime iso={ticket.arrival_time} />
-        </span>
-      </div>
-
-      <RemainingBar
-        arrivalTime={ticket.arrival_time}
-        maxWaitMinutes={ticket.max_wait_minutes}
-        status={ticket.status}
-      />
-
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        {/* ✅ Área con icono de EQUIPO unificado */}
-        <span className="flex items-center gap-1">
-          <TeamIcon size={12} />
-          {ticket.area}
-        </span>
-        <span className="flex items-center gap-1">
-          <UserCircle size={11} />
-          {ticket.usuario}
-        </span>
-      </div>
-
-      {(isAdmin || ticket.user_id === myUserId) && (
-        <button
-          type="button"
-          onClick={() => onDelete(ticket)}
-          className="text-xs text-destructive hover:text-destructive/80 transition-colors"
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={panelRef}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15 }}
+          // Importante: fixed + z alto para quedar por encima de todo
+          className="fixed z-[9999] rounded-xl border border-border bg-popover overflow-hidden shadow-lg"
+          style={{
+            top: pos.top,
+            left: pos.left,
+            width: 176,
+          }}
         >
-          Eliminar
-        </button>
+          <div className="px-3 py-2 flex items-center justify-between border-b border-border">
+            <ChevronDown size={12} className="text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Ordenar: {labels[sortKey]}
+            </span>
+          </div>
+
+          {(["prioridad", "llegada"] as SortKey[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => onSelect(k)}
+              className={cn(
+                "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
+                "hover:bg-accent/50",
+                sortKey === k
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              type="button"
+            >
+              {labels[k]}
+              {sortKey === k && (
+                <span className="w-1 h-4 rounded-full bg-foreground inline-block" />
+              )}
+            </button>
+          ))}
+        </motion.div>
       )}
-    </motion.div>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
@@ -459,9 +223,13 @@ export function TicketsView() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
+  // Ref para anclar dropdown (portal)
+  const sortButtonRef = useRef<HTMLButtonElement | null>(null);
+
   // Filter
   const filtered = tickets.filter((t) => {
-    if (tab === "Pendientes") return t.status === "Pendiente" || t.status === "En proceso";
+    if (tab === "Pendientes")
+      return t.status === "Pendiente" || t.status === "En proceso";
     if (tab === "Completados") return t.status === "Terminada";
     return true;
   });
@@ -469,9 +237,13 @@ export function TicketsView() {
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     if (sortKey === "prioridad")
-      return (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3);
+      return (
+        (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)
+      );
     if (sortKey === "llegada")
-      return new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime();
+      return (
+        new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime()
+      );
     return 0;
   });
 
@@ -479,7 +251,8 @@ export function TicketsView() {
   const pageData = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
 
-  const allSelected = pageData.length > 0 && pageData.every((t) => selected.has(t.id));
+  const allSelected =
+    pageData.length > 0 && pageData.every((t) => selected.has(t.id));
 
   const toggleAll = () => {
     if (allSelected) {
@@ -631,7 +404,10 @@ export function TicketsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role]);
 
-  const handleStatusChange = async (ticketId: string, nextStatus: Ticket["status"]) => {
+  const handleStatusChange = async (
+    ticketId: string,
+    nextStatus: Ticket["status"],
+  ) => {
     const ticket = tickets.find((t) => t.id === ticketId);
     if (!ticket) return;
 
@@ -639,7 +415,8 @@ export function TicketsView() {
     if (expired && nextStatus === "En proceso") {
       toast({
         title: "No se puede avanzar",
-        description: "Este ticket ya ha vencido y no puede pasar a En proceso.",
+        description:
+          "Este ticket ya ha vencido y no puede pasar a En proceso.",
       });
       return;
     }
@@ -658,7 +435,9 @@ export function TicketsView() {
       return;
     }
 
-    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)));
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)),
+    );
   };
 
   const handleAddTicket = async (data: {
@@ -768,7 +547,9 @@ export function TicketsView() {
     <div className="flex flex-col h-full">
       {/* Top bar - h-16 matches sidebar logo height */}
       <div className="h-16 relative flex items-center justify-center sm:justify-between px-4 md:px-8 border-b border-border/50">
-        <h1 className="text-foreground text-xl font-semibold text-center sm:text-left">Tickets</h1>
+        <h1 className="text-foreground text-xl font-semibold text-center sm:text-left">
+          Tickets
+        </h1>
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
@@ -807,49 +588,32 @@ export function TicketsView() {
 
         <div className="relative">
           <button
+            ref={sortButtonRef}
             onClick={() => setSortOpen((o) => !o)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card/80 text-foreground text-sm hover:border-ring transition-colors"
             type="button"
+            aria-expanded={sortOpen}
+            aria-haspopup="menu"
           >
             <ChevronDown size={13} />
-            <span className="hidden sm:inline">Ordenar: {SORT_LABELS[sortKey]}</span>
+            <span className="hidden sm:inline">
+              Ordenar: {SORT_LABELS[sortKey]}
+            </span>
             <span className="sm:hidden">Ordenar</span>
           </button>
 
-          <AnimatePresence>
-            {sortOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-1 w-44 rounded-xl border border-border bg-popover z-30 overflow-hidden shadow-lg"
-              >
-                <div className="px-3 py-2 flex items-center justify-between border-b border-border">
-                  <ChevronDown size={12} className="text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Ordenar: {SORT_LABELS[sortKey]}</span>
-                </div>
-                {(["prioridad", "llegada"] as SortKey[]).map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => {
-                      setSortKey(k);
-                      setSortOpen(false);
-                    }}
-                    className={cn(
-                      "w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors",
-                      "hover:bg-accent/50",
-                      sortKey === k ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-                    )}
-                    type="button"
-                  >
-                    {SORT_LABELS[k]}
-                    {sortKey === k && <span className="w-1 h-4 rounded-full bg-foreground inline-block" />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Dropdown en Portal (soluciona el bug visual) */}
+          <SortDropdownPortal
+            open={sortOpen}
+            anchorRef={sortButtonRef}
+            sortKey={sortKey}
+            labels={SORT_LABELS}
+            onSelect={(k) => {
+              setSortKey(k);
+              setSortOpen(false);
+            }}
+            onClose={() => setSortOpen(false)}
+          />
         </div>
       </div>
 
@@ -857,7 +621,11 @@ export function TicketsView() {
       <div className="hidden md:block flex-1 px-8 overflow-auto">
         <div className="rounded-xl border border-border overflow-visible relative">
           {mounted ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted">
@@ -916,11 +684,17 @@ export function TicketsView() {
                   </tr>
                 </thead>
 
-                <SortableContext items={pageData.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext
+                  items={pageData.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
                   <tbody>
                     {pageData.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="px-4 py-10 text-center text-muted-foreground text-sm">
+                        <td
+                          colSpan={11}
+                          className="px-4 py-10 text-center text-muted-foreground text-sm"
+                        >
                           No hay tickets en esta categoría.
                         </td>
                       </tr>
@@ -937,11 +711,15 @@ export function TicketsView() {
                           onToggleExpand={() =>
                             setExpandedRows((prev) => {
                               const next = new Set(prev);
-                              next.has(ticket.id) ? next.delete(ticket.id) : next.add(ticket.id);
+                              next.has(ticket.id)
+                                ? next.delete(ticket.id)
+                                : next.add(ticket.id);
                               return next;
                             })
                           }
-                          onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                          onStatusChange={(status) =>
+                            handleStatusChange(ticket.id, status)
+                          }
                           onDelete={handleDeleteTicket}
                           myUserId={myUserId}
                         />
@@ -976,11 +754,15 @@ export function TicketsView() {
                   onToggleExpand={() =>
                     setExpandedRows((prev) => {
                       const next = new Set(prev);
-                      next.has(ticket.id) ? next.delete(ticket.id) : next.add(ticket.id);
+                      next.has(ticket.id)
+                        ? next.delete(ticket.id)
+                        : next.add(ticket.id);
                       return next;
                     })
                   }
-                  onStatusChange={(status) => handleStatusChange(ticket.id, status)}
+                  onStatusChange={(status) =>
+                    handleStatusChange(ticket.id, status)
+                  }
                   onDelete={handleDeleteTicket}
                   myUserId={myUserId}
                 />
@@ -1017,13 +799,20 @@ export function TicketsView() {
         </button>
       </div>
 
-      <CreateTicketModal open={modalOpen} onClose={() => setModalOpen(false)} onAdd={handleAddTicket} members={areaMembers} />
+      <CreateTicketModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onAdd={handleAddTicket}
+        members={areaMembers}
+      />
 
       {/* ✅ Modal de confirmación para eliminar ticket */}
       <ConfirmDeleteModal
         open={!!confirmDelete}
         title="¿Eliminar este ticket?"
-        description={`Se eliminará el ticket "${confirmDelete?.description.slice(0, 50)}${(confirmDelete?.description.length ?? 0) > 50 ? "..." : ""}". Esta acción no se puede deshacer.`}
+        description={`Se eliminará el ticket "${confirmDelete?.description.slice(0, 50)}${
+          (confirmDelete?.description.length ?? 0) > 50 ? "..." : ""
+        }". Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar ticket"
         isLoading={isDeleting}
         onConfirm={confirmDeleteTicket}

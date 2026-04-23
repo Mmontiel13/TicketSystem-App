@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
-import { UserProvider, type UserProfile, type UserRole, type IconUserId } from "@/lib/user-context";
+import {
+  UserProvider,
+  type UserProfile,
+  type UserRole,
+  type IconUserId,
+} from "@/lib/user-context";
 import { NotificationsProvider } from "@/lib/notifications-context";
 import { createClient } from "@/lib/supabase/server";
 
@@ -30,7 +35,6 @@ export default async function DashboardLayout({
 
   // Check if user account is still active
   if (!profile.is_active) {
-    // Sign out the user
     await supabase.auth.signOut();
     redirect("/login");
   }
@@ -54,7 +58,9 @@ export default async function DashboardLayout({
           <main className="hidden md:flex flex-1 ml-[230px] min-h-screen flex-col overflow-hidden">
             {children}
           </main>
-          <main className="md:hidden flex-1 min-h-screen flex flex-col overflow-hidden">
+
+          {/* ✅ FIX: no usar overflow-hidden en móvil para no recortar dropdowns */}
+          <main className="md:hidden flex-1 min-h-screen flex flex-col overflow-visible">
             {children}
           </main>
         </div>
