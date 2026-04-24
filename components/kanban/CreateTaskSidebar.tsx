@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Plus, UserCircle, X } from "lucide-react";
+import { ChevronLeft, Plus, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { ResponsiveIcon } from "@/components/responsive-icon";
+import { getUserIcon } from "@/lib/user-icons";
 
 import type { KanbanColumn, KanbanMember, KanbanTask } from "./kanban.types";
 import {
   COLUMNS,
-  ICON_MAP,
   checkboxClass,
   headerButtonClass,
   inputClass,
@@ -38,11 +38,15 @@ export function CreateTaskSidebar({
   const [selectedMembers, setSelectedMembers] = useState<number[]>(
     task?.assigned_to ?? []
   );
-  const [endDate, setEndDate] = useState(task?.end_date ? task.end_date.split("T")[0] : "");
-  const [status, setStatus] = useState<KanbanColumn>(task?.status ?? "Tareas");
-  const [errors, setErrors] = useState<{ title?: string; description?: string; endDate?: string }>(
-    {}
+  const [endDate, setEndDate] = useState(
+    task?.end_date ? task.end_date.split("T")[0] : ""
   );
+  const [status, setStatus] = useState<KanbanColumn>(task?.status ?? "Tareas");
+  const [errors, setErrors] = useState<{
+    title?: string;
+    description?: string;
+    endDate?: string;
+  }>({});
 
   useEffect(() => {
     if (!task) return;
@@ -60,7 +64,8 @@ export function CreateTaskSidebar({
   }
 
   function handleSave() {
-    const newErrors: { title?: string; description?: string; endDate?: string } = {};
+    const newErrors: { title?: string; description?: string; endDate?: string } =
+      {};
 
     if (!title.trim()) newErrors.title = "El título es requerido";
     if (!description.trim()) newErrors.description = "La descripción es requerida";
@@ -156,7 +161,8 @@ export function CreateTaskSidebar({
             className={cn(
               inputClass,
               "text-xs",
-              errors.title && "border-destructive focus:ring-destructive focus:border-destructive"
+              errors.title &&
+                "border-destructive focus:ring-destructive focus:border-destructive"
             )}
           />
           {errors.title && <p className="text-destructive text-xs">{errors.title}</p>}
@@ -172,10 +178,13 @@ export function CreateTaskSidebar({
             className={cn(
               inputClass,
               "resize-none leading-relaxed text-xs",
-              errors.description && "border-destructive focus:ring-destructive focus:border-destructive"
+              errors.description &&
+                "border-destructive focus:ring-destructive focus:border-destructive"
             )}
           />
-          {errors.description && <p className="text-destructive text-xs">{errors.description}</p>}
+          {errors.description && (
+            <p className="text-destructive text-xs">{errors.description}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -202,7 +211,8 @@ export function CreateTaskSidebar({
             className={cn(
               inputClass,
               "text-xs",
-              errors.endDate && "border-destructive focus:ring-destructive focus:border-destructive"
+              errors.endDate &&
+                "border-destructive focus:ring-destructive focus:border-destructive"
             )}
           />
           {errors.endDate && <p className="text-destructive text-xs">{errors.endDate}</p>}
@@ -216,7 +226,8 @@ export function CreateTaskSidebar({
               <p className="text-foreground text-xs">No hay miembros en el área.</p>
             ) : (
               members.map((m) => {
-                const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
+                const Icon = getUserIcon(m.avatar_icon);
+
                 return (
                   <label
                     key={m.id}

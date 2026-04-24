@@ -9,13 +9,16 @@ import {
   Ticket,
   Clock,
   Users,
-  UserCircle,
   Volume2,
   VolumeX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotifications, type Notification } from "@/lib/notifications-context";
 import { ResponsiveIcon } from "@/components/responsive-icon";
+
+import { getUserIcon } from "@/lib/user-icons";
+import { getTeamIcon } from "@/lib/team-icons";
+import type { IconUserId } from "@/lib/user-context";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
@@ -56,7 +59,7 @@ function notificationLabel(type: string) {
   }
 }
 
-type TabFilter = "all" | "unread" | "read";
+type TabFilter = "unread" | "read" | "all";
 
 /* ─── Notification Card ──────────────────────────────────────────────── */
 
@@ -68,6 +71,10 @@ function NotificationCard({
   onMarkRead: (id: number) => void;
 }) {
   const Icon = notificationIcon(notification.type);
+
+  // ✅ iconos reales
+  const UserIcon = getUserIcon((notification.user_avatar_icon ?? "Users") as IconUserId);
+  const TeamIcon = getTeamIcon(notification.team_icon_id ?? undefined);
 
   return (
     <motion.div
@@ -114,22 +121,37 @@ function NotificationCard({
                 <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
               )}
             </div>
+
             <p className="text-foreground text-xs sm:text-sm mt-1.5 leading-relaxed line-clamp-2">
               {notification.message}
             </p>
+
+            {/* ✅ Usuario + Área con iconos reales (solo en esta vista) */}
             <div className="flex items-center gap-3 mt-2 text-[10px] sm:text-xs text-muted-foreground">
               {notification.user_name && (
-                <span className="flex items-center gap-1">
-                  <UserCircle size={11} />
-                  {notification.user_name}
+                <span className="flex items-center gap-1 min-w-0">
+                  <ResponsiveIcon
+                    icon={UserIcon}
+                    smSize={11}
+                    mdSize={12}
+                    className="text-muted-foreground shrink-0"
+                  />
+                  <span className="truncate">{notification.user_name}</span>
                 </span>
               )}
+
               {notification.team_name && (
-                <span className="flex items-center gap-1">
-                  <Users size={11} />
-                  {notification.team_name}
+                <span className="flex items-center gap-1 min-w-0">
+                  <ResponsiveIcon
+                    icon={TeamIcon}
+                    smSize={11}
+                    mdSize={12}
+                    className="text-muted-foreground shrink-0"
+                  />
+                  <span className="truncate">{notification.team_name}</span>
                 </span>
               )}
+
               <span className="flex items-center gap-1">
                 <Clock size={11} />
                 {timeAgo(notification.created_at)}
@@ -168,7 +190,7 @@ export function NotificationsView() {
     markAsRead,
     markAllAsRead,
   } = useNotifications();
-  const [tab, setTab] = useState<TabFilter>("all");
+  const [tab, setTab] = useState<TabFilter>("unread");
 
   const filtered = notifications.filter((n) => {
     if (tab === "unread") return !n.is_read;
@@ -177,9 +199,9 @@ export function NotificationsView() {
   });
 
   const TABS: { id: TabFilter; label: string }[] = [
+    { id: "unread", label: `No leídas (${unreadCount})`},
+    { id: "read", label: "Leídas"},
     { id: "all", label: "Todas" },
-    { id: "unread", label: `No leídas (${unreadCount})` },
-    { id: "read", label: "Leídas" },
   ];
 
   return (
@@ -218,7 +240,8 @@ export function NotificationsView() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={markAllAsRead}
-            className="absolute right-4 md:right-8 sm:relative sm:right-auto flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-colors"
+            className="absolute right-4 md:right-8 sm:relative sm:right-auto flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm font-medium"
+            type="button"
           >
             <CheckCheck size={14} />
             <span className="hidden sm:inline">Marcar todas como leídas</span>
@@ -240,6 +263,7 @@ export function NotificationsView() {
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
+              type="button"
             >
               {t.label}
             </button>

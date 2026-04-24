@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Ghost, Rose, Rabbit, Fish, Cat, Skull, VenetianMask, Volleyball, Donut, HandMetal, Sticker, Biohazard } from "lucide-react";
+import { USER_ICON_MAP, getUserIcon } from "@/lib/user-icons";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useUser, type IconUserId } from "@/lib/user-context";
@@ -16,31 +16,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const USER_ICONS = [
-  { id: "Ghost", icon: Ghost },
-  { id: "Rose", icon: Rose },
-  { id: "Rabbit", icon: Rabbit },
-  { id: "Skull", icon: Skull },
-  { id: "Fish", icon: Fish },
-  { id: "Cat", icon: Cat },
-  { id: "VenetianMask", icon: VenetianMask },
-  { id: "Volleyball", icon: Volleyball },
-  { id: "Donut", icon: Donut },
-  { id: "HandMetal", icon: HandMetal },
-  { id: "Sticker", icon: Sticker },
-  { id: "Biohazard", icon: Biohazard },
-] as const;
-
-function userIconById(id: IconUserId) {
-  const iconMap = USER_ICONS.reduce((acc, { id: iconId, icon }) => {
-    acc[iconId] = icon;
-    return acc;
-  }, {} as Record<string, React.ElementType>);
-  return iconMap[id] ?? Ghost;
-}
-
-export { userIconById };
-
 interface UserAvatarEditorProps {
   showTitle?: boolean;
 }
@@ -49,6 +24,16 @@ export function UserAvatarEditor({ showTitle = true }: UserAvatarEditorProps) {
   const { user, updateUser } = useUser();
   const [selectedIcon, setSelectedIcon] = useState<IconUserId | null>(null);
   const [confirmEditOpen, setConfirmEditOpen] = useState(false);
+
+  // Convertimos el map a una lista para poder hacer .map en el render
+  const userIconList = useMemo(
+    () =>
+      Object.entries(USER_ICON_MAP).map(([id, icon]) => ({
+        id: id as IconUserId,
+        icon,
+      })),
+    [],
+  );
 
   function handleIconSelect(iconId: IconUserId) {
     setSelectedIcon(iconId);
@@ -77,18 +62,20 @@ export function UserAvatarEditor({ showTitle = true }: UserAvatarEditorProps) {
   return (
     <>
       <div className="py-4">
-        {showTitle && <p className="text-sm text-muted-foreground mb-4">Selecciona un icono:</p>}
+        {showTitle && (
+          <p className="text-sm text-muted-foreground mb-4">Selecciona un icono:</p>
+        )}
+
         <div className="grid grid-cols-4 gap-2">
-          {USER_ICONS.map(({ id, icon: IconComponent }) => (
+          {userIconList.map(({ id, icon: IconComponent }) => (
             <button
               key={id}
               className={cn(
                 "p-3 border rounded-lg hover:bg-accent flex items-center justify-center transition-colors",
-                user.iconId === id
-                  ? "border-primary bg-primary/10"
-                  : "border-border"
+                user.iconId === id ? "border-primary bg-primary/10" : "border-border",
               )}
-              onClick={() => handleIconSelect(id as IconUserId)}
+              onClick={() => handleIconSelect(id)}
+              type="button"
             >
               <IconComponent size={20} className="text-foreground" />
             </button>
@@ -96,7 +83,6 @@ export function UserAvatarEditor({ showTitle = true }: UserAvatarEditorProps) {
         </div>
       </div>
 
-      {/* ── Confirmación de cambio de icono ── */}
       <AlertDialog open={confirmEditOpen} onOpenChange={setConfirmEditOpen}>
         <AlertDialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
           <AlertDialogHeader>
@@ -107,16 +93,18 @@ export function UserAvatarEditor({ showTitle = true }: UserAvatarEditorProps) {
               ¿Estás seguro de que deseas cambiar tu avatar a este icono?
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <div className="flex justify-center py-4">
             {selectedIcon && (
               <div className="p-4 border border-border rounded-lg">
                 {(() => {
-                  const IconComponent = userIconById(selectedIcon);
+                  const IconComponent = getUserIcon(selectedIcon);
                   return <IconComponent size={32} className="text-foreground" />;
                 })()}
               </div>
             )}
           </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction

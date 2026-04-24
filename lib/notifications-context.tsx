@@ -25,8 +25,14 @@ export interface Notification {
   message: string;
   is_read: boolean;
   created_at: string;
+
+  // UI
   user_name?: string;
   team_name?: string;
+
+  // ✅ para pintar iconos reales (solo los usamos en la pestaña de notificaciones)
+  user_avatar_icon?: string; // viene de users.avatar_icon
+  team_icon_id?: string | null; // viene de teams.icon_id
 }
 
 interface NotificationsContextValue {
@@ -113,7 +119,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("*, users(full_name), teams(name)")
+        // ✅ aquí está el cambio importante
+        .select("*, users(full_name, avatar_icon), teams(name, icon_id)")
         .eq("team_id", SISTEMAS_TEAM_ID)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -132,8 +139,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         message: row.message,
         is_read: row.is_read,
         created_at: row.created_at,
+
         user_name: row.users?.full_name ?? "Usuario desconocido",
         team_name: row.teams?.name ?? "",
+
+        // ✅ nuevos
+        user_avatar_icon: row.users?.avatar_icon ?? "Users",
+        team_icon_id: row.teams?.icon_id ?? null,
       }));
 
       if (isFirstLoadRef.current) {
@@ -197,10 +209,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const deleteNotification = useCallback(
     async (id: number) => {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("notifications").delete().eq("id", id);
 
       if (error) {
         console.error("Error deleting notification", error);
@@ -217,10 +226,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const ids = notifications.map((n) => n.id);
     if (ids.length === 0) return;
 
-    const { error } = await supabase
-      .from("notifications")
-      .delete()
-      .in("id", ids);
+    const { error } = await supabase.from("notifications").delete().in("id", ids);
 
     if (error) {
       console.error("Error clearing all notifications", error);
