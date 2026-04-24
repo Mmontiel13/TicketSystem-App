@@ -16,7 +16,7 @@ export function NotificationsBell() {
   // ✅ Solo 1 notificación: la NO leída más reciente.
   // (notifications llega ordenado por created_at desc desde el contexto)
   const latestUnread = useMemo(
-    () => notifications.filter((n) => !n.is_read).slice(0, 1),
+    () => notifications.filter((n) => !n.is_read),
     [notifications],
   );
 

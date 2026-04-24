@@ -59,7 +59,7 @@ function notificationLabel(type: string) {
   }
 }
 
-type TabFilter = "all" | "unread" | "read";
+type TabFilter = "unread" | "read" | "all";
 
 /* ─── Notification Card ──────────────────────────────────────────────── */
 
@@ -190,7 +190,7 @@ export function NotificationsView() {
     markAsRead,
     markAllAsRead,
   } = useNotifications();
-  const [tab, setTab] = useState<TabFilter>("all");
+  const [tab, setTab] = useState<TabFilter>("unread");
 
   const filtered = notifications.filter((n) => {
     if (tab === "unread") return !n.is_read;
@@ -199,9 +199,9 @@ export function NotificationsView() {
   });
 
   const TABS: { id: TabFilter; label: string }[] = [
+    { id: "unread", label: `No leídas (${unreadCount})`},
+    { id: "read", label: "Leídas"},
     { id: "all", label: "Todas" },
-    { id: "unread", label: `No leídas (${unreadCount})` },
-    { id: "read", label: "Leídas" },
   ];
 
   return (
