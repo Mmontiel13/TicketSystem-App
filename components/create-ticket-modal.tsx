@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Monitor, Printer, Wifi, HelpCircle, UserCircle, Users, Briefcase, Code } from "lucide-react";
+import {
+  X,
+  Plus,
+  Monitor,
+  Printer,
+  Wifi,
+  HelpCircle,
+  Users,
+  Code,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveIcon } from "@/components/responsive-icon";
 import { TicketType } from "@/lib/mock-tickets";
-import { ICON_MAP } from "@/components/kanban/kanban.config";
-import type { IconUserId } from "@/components/kanban/kanban.types";
+import { getUserIcon } from "@/lib/user-icons";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -39,14 +47,21 @@ interface CreateTicketModalProps {
   members: { id: number; full_name: string; avatar_icon?: string }[];
 }
 
-export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicketModalProps) {
+export function CreateTicketModal({
+  open,
+  onClose,
+  onAdd,
+  members,
+}: CreateTicketModalProps) {
   const { toast } = useToast();
   const [description, setDescription] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [allArea, setAllArea] = useState(false);
   const [waitIndex, setWaitIndex] = useState(1); // default 30mins
-  const [errors, setErrors] = useState<{ description?: string; type?: string }>({});
+  const [errors, setErrors] = useState<{ description?: string; type?: string }>(
+    {},
+  );
 
   if (!open) return null;
 
@@ -113,7 +128,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
           transition={{ duration: 0.2 }}
           className={cn(
             "relative w-full max-w-sm rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 flex flex-col gap-3 sm:gap-5",
-            "bg-popover/80 backdrop-blur-xl max-h-[90vh] overflow-y-auto"
+            "bg-popover/80 backdrop-blur-xl max-h-[90vh] overflow-y-auto",
           )}
         >
           {/* Close — círculo con X */}
@@ -121,13 +136,16 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
             onClick={onClose}
             className="absolute top-3 sm:top-4 right-3 sm:right-4 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full border border-border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             aria-label="Cerrar"
+            type="button"
           >
             <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
           </button>
 
           {/* Header */}
           <div className="pr-8">
-            <h2 className="text-foreground font-semibold text-base sm:text-lg">Agregando un nuevo Ticket</h2>
+            <h2 className="text-foreground font-semibold text-base sm:text-lg">
+              Agregando un nuevo Ticket
+            </h2>
             <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">
               El ticket será resuelto según la disponibilidad y urgencia.
             </p>
@@ -147,17 +165,22 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                 "w-full rounded-lg border border-input bg-background text-foreground text-xs sm:text-sm px-3 py-2 resize-none",
                 "placeholder:text-muted-foreground/70",
                 "focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors",
-                errors.description && "border-destructive focus:ring-destructive focus:border-destructive"
+                errors.description &&
+                  "border-destructive focus:ring-destructive focus:border-destructive",
               )}
             />
             {errors.description && (
-              <p className="text-xs text-destructive mt-1">{errors.description}</p>
+              <p className="text-xs text-destructive mt-1">
+                {errors.description}
+              </p>
             )}
           </div>
 
           {/* Type - Responsive grid */}
           <div>
-            <label className="text-xs sm:text-sm text-muted-foreground mb-2 block font-medium">Tipo de error:</label>
+            <label className="text-xs sm:text-sm text-muted-foreground mb-2 block font-medium">
+              Tipo de error:
+            </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
               {TICKET_TYPES.map(({ id, label, icon: Icon }) => (
                 <motion.button
@@ -171,12 +194,14 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                     selectedType === id
                       ? "border-ring bg-accent text-foreground shadow-md"
                       : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground hover:bg-accent/50",
-                    errors.type && !selectedType && "border-destructive"
+                    errors.type && !selectedType && "border-destructive",
                   )}
                   type="button"
                 >
                   <ResponsiveIcon icon={Icon} smSize={16} mdSize={20} />
-                  <span className="leading-tight text-center truncate">{label}</span>
+                  <span className="leading-tight text-center truncate">
+                    {label}
+                  </span>
                 </motion.button>
               ))}
             </div>
@@ -216,8 +241,17 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {(() => {
-                        const MemberIcon = ICON_MAP[(m.avatar_icon || "Users") as IconUserId] || UserCircle;
-                        return <ResponsiveIcon icon={MemberIcon} smSize={18} mdSize={24} className="text-muted-foreground shrink-0" />;
+                        const MemberIcon = getUserIcon(
+                          (m.avatar_icon as any) ?? "Users",
+                        );
+                        return (
+                          <ResponsiveIcon
+                            icon={MemberIcon}
+                            smSize={18}
+                            mdSize={24}
+                            className="text-muted-foreground shrink-0"
+                          />
+                        );
                       })()}
                       <span className="text-xs sm:text-sm text-foreground truncate">
                         {m.full_name}
@@ -258,7 +292,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
                   key={s.value}
                   className={cn(
                     "text-[8px] sm:text-[10px] font-medium transition-colors",
-                    i === waitIndex ? "text-foreground" : "text-muted-foreground"
+                    i === waitIndex ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
                   {s.label}
@@ -268,7 +302,10 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
             {/* Display current value */}
             <div className="text-center">
               <p className="text-xs text-muted-foreground">
-                Máximo: <span className="text-foreground font-semibold">{WAIT_STEPS[waitIndex].value} minutos</span>
+                Máximo:{" "}
+                <span className="text-foreground font-semibold">
+                  {WAIT_STEPS[waitIndex].value} minutos
+                </span>
               </p>
             </div>
           </div>
@@ -283,7 +320,7 @@ export function CreateTicketModal({ open, onClose, onAdd, members }: CreateTicke
               "flex items-center justify-center gap-2 w-full py-2 sm:py-2.5 rounded-lg",
               "bg-primary text-primary-foreground text-xs sm:text-sm font-medium",
               "hover:opacity-90 transition-colors",
-              "disabled:opacity-40 disabled:cursor-not-allowed mt-2 sm:mt-0"
+              "disabled:opacity-40 disabled:cursor-not-allowed mt-2 sm:mt-0",
             )}
             type="button"
           >

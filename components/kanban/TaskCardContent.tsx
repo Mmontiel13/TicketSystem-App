@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  ArrowRight,
-  MoreHorizontal,
-  GripVertical,
-  UserCircle,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, MoreHorizontal, GripVertical } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ResponsiveIcon } from "@/components/responsive-icon";
@@ -20,8 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { getUserIcon } from "@/lib/user-icons";
+
 import type { KanbanColumn, KanbanMember, KanbanTask } from "./kanban.types";
-import { ICON_MAP, COLUMNS } from "./kanban.config";
+import { COLUMNS } from "./kanban.config";
 
 export function TaskCardContent({
   task,
@@ -41,9 +37,7 @@ export function TaskCardContent({
   const [showMenu, setShowMenu] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
-  const assignedMembers = members.filter((m) =>
-    task.assigned_to.includes(m.id)
-  );
+  const assignedMembers = members.filter((m) => task.assigned_to.includes(m.id));
   const isLongDesc = task.description.length > 100;
 
   const columnIndex = COLUMNS.findIndex((c) => c.id === task.status);
@@ -57,7 +51,6 @@ export function TaskCardContent({
     <>
       <div
         className={cn(
-          // ✅ Más grande en móvil
           "rounded-lg border border-border bg-card p-3 sm:p-3 flex flex-col gap-2 sm:gap-2 select-none",
           isDragging && "opacity-50 ring-1 ring-ring/20"
         )}
@@ -162,7 +155,8 @@ export function TaskCardContent({
             <span className="text-foreground/50 text-[10px]">Asignado:</span>
             <div className="flex -space-x-1.5">
               {assignedMembers.slice(0, 3).map((m) => {
-                const Icon = ICON_MAP[m.avatar_icon] || UserCircle;
+                const Icon = getUserIcon(m.avatar_icon);
+
                 return (
                   <div
                     key={m.id}
@@ -178,6 +172,7 @@ export function TaskCardContent({
                   </div>
                 );
               })}
+
               {assignedMembers.length > 3 && (
                 <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] text-foreground/70">
                   +{assignedMembers.length - 3}

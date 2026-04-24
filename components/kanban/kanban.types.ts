@@ -1,21 +1,7 @@
 import type React from "react";
+import type { IconUserId } from "@/lib/user-context";
 
 export type KanbanColumn = "Tareas" | "En proceso" | "Pendiente" | "Terminada";
-
-export type IconUserId =
-  | "Ghost"
-  | "Rose"
-  | "Rabbit"
-  | "skulls"
-  | "Fish"
-  | "Cat"
-  | "Users"
-  | "VenetianMask"
-  | "Volleyball"
-  | "Donut"
-  | "Hand-metal"
-  | "Sticker"
-  | "Biohazard";
 
 export interface KanbanMember {
   id: number;

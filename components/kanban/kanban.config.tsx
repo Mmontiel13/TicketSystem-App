@@ -1,40 +1,6 @@
-import {
-  ListTodo,
-  Loader,
-  MinusCircle,
-  CheckCircle2,
-  UserCircle,
-  Ghost,
-  Rose,
-  Rabbit,
-  Fish,
-  Cat,
-  VenetianMask,
-  Volleyball,
-  Donut,
-  HandMetal,
-  Sticker,
-  Biohazard,
-  Skull,
-} from "lucide-react";
+import { ListTodo, Loader, MinusCircle, CheckCircle2 } from "lucide-react";
 
-import type { ColumnConfig, IconUserId } from "./kanban.types";
-
-export const ICON_MAP: Record<IconUserId, React.ElementType> = {
-  Ghost,
-  Rose,
-  Rabbit,
-  Users: UserCircle,
-  Fish,
-  Cat,
-  VenetianMask,
-  Volleyball,
-  Donut,
-  "Hand-metal": HandMetal,
-  Sticker,
-  Biohazard,
-  skulls: Skull,
-};
+import type { ColumnConfig } from "./kanban.types";
 
 export const COLUMNS: ColumnConfig[] = [
   { id: "Tareas", icon: ListTodo, iconClass: "text-foreground" },
