@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, Mail, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Lock, Mail, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUser } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
@@ -18,20 +19,30 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export default function ConfiguracionView() {
+  const router = useRouter();
   const { user } = useUser();
+
   const [mounted, setMounted] = useState(false);
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // 👁️ toggles
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [teamName, setTeamName] = useState<string | null>(null);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     fetchTeamName();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchTeamName() {
@@ -52,9 +63,7 @@ export default function ConfiguracionView() {
           .eq("id", userData.team_id)
           .single();
 
-        if (teamData) {
-          setTeamName(teamData.name);
-        }
+        if (teamData) setTeamName(teamData.name);
       }
     } catch (error) {
       console.error("Error fetching team name:", error);
@@ -63,6 +72,16 @@ export default function ConfiguracionView() {
 
   async function handleChangePassword() {
     setPasswordError("");
+
+    if (!user?.email) {
+      setPasswordError("No se encontró el email del usuario.");
+      return;
+    }
+
+    if (!currentPassword) {
+      setPasswordError("Ingresa tu contraseña actual.");
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setPasswordError("Las contraseñas no coinciden");
@@ -74,21 +93,47 @@ export default function ConfiguracionView() {
       return;
     }
 
+    if (newPassword === currentPassword) {
+      setPasswordError("La nueva contraseña no puede ser igual a la actual.");
+      return;
+    }
+
     setPasswordLoading(true);
 
     try {
       const supabase = createClient();
 
-      const { error } = await supabase.auth.updateUser({
+      // 1) Re-autenticación: valida la contraseña actual
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        setPasswordError("La contraseña actual es incorrecta.");
+        return;
+      }
+
+      // 2) Actualiza password en Supabase Auth (auth.users)
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
+      // 3) Cierra sesión y fuerza re-login
+      await supabase.auth.signOut();
+
+      // Limpieza local
       setChangePasswordOpen(false);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+
+      router.push("/login");
     } catch (error) {
       console.error("Error updating password:", error);
       setPasswordError("Error al cambiar la contraseña. Intenta de nuevo.");
@@ -97,8 +142,9 @@ export default function ConfiguracionView() {
     }
   }
 
-  // ✅ Unificado: usar el resolver central de iconos
   const UserIcon = getUserIcon(user.iconId);
+
+  if (!mounted) return null;
 
   return (
     <div className="flex flex-col h-full">
@@ -111,7 +157,7 @@ export default function ConfiguracionView() {
 
       {/* Content */}
       <div className="flex-1 px-3 sm:px-4 md:px-8 py-4 sm:py-6 flex flex-col gap-4 sm:gap-6 overflow-y-auto">
-        {/* User Profile & Account Information Section */}
+        {/* Perfil */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -122,7 +168,7 @@ export default function ConfiguracionView() {
             Perfil de Usuario
           </h2>
 
-          {/* Avatar Section */}
+          {/* Avatar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 pb-6 border-b border-border/30">
             <div className="w-16 h-16 rounded-lg border border-border flex items-center justify-center bg-muted flex-shrink-0">
               <UserIcon size={32} className="text-foreground" />
@@ -143,19 +189,19 @@ export default function ConfiguracionView() {
             </motion.button>
           </div>
 
-          {/* User Information Fields */}
+          {/* Info */}
           <div className="space-y-4">
-            {/* Name Field */}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Nombre
               </label>
               <div className="mt-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
-                <p className="text-foreground text-sm">{user.name || user.email}</p>
+                <p className="text-foreground text-sm">
+                  {user.name || user.email}
+                </p>
               </div>
             </div>
 
-            {/* Email Field */}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Mail size={14} />
@@ -166,7 +212,6 @@ export default function ConfiguracionView() {
               </div>
             </div>
 
-            {/* Team Field */}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Users size={14} />
@@ -179,7 +224,6 @@ export default function ConfiguracionView() {
               </div>
             </div>
 
-            {/* Role Badge */}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Rol
@@ -196,8 +240,7 @@ export default function ConfiguracionView() {
           </div>
         </motion.div>
 
-        {/* Security Section comentado temporalmente */}
-        {/*
+        {/* Seguridad */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -208,11 +251,25 @@ export default function ConfiguracionView() {
             <Lock size={18} />
             Seguridad
           </h2>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Cambia tu contraseña de acceso (se cerrará tu sesión y tendrás que iniciar sesión otra vez).
+            </p>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setChangePasswordOpen(true)}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-colors whitespace-nowrap"
+            >
+              Cambiar contraseña
+            </motion.button>
+          </div>
         </motion.div>
-        */}
       </div>
 
-      {/* Avatar Modal Dialog */}
+      {/* Avatar Modal */}
       <Dialog open={avatarModalOpen} onOpenChange={setAvatarModalOpen}>
         <DialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
           <DialogHeader>
@@ -235,13 +292,15 @@ export default function ConfiguracionView() {
         </DialogContent>
       </Dialog>
 
-      {/* Change Password Dialog */}
+      {/* Change Password Modal */}
       <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
         <DialogContent className="rounded-xl bg-popover/90 backdrop-blur-xl border-border">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Cambiar Contraseña</DialogTitle>
+            <DialogTitle className="text-foreground">
+              Cambiar Contraseña
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Ingresa una nueva contraseña segura para tu cuenta.
+              Ingresa tu contraseña actual y define una nueva contraseña.
             </DialogDescription>
           </DialogHeader>
 
@@ -254,29 +313,56 @@ export default function ConfiguracionView() {
               >
                 Contraseña Actual
               </label>
-              <input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="••••••••"
-              />
+
+              <div className="mt-2 relative">
+                <input
+                  id="current-password"
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full pr-10 px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="••••••••"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  aria-label={showCurrentPassword ? "Ocultar contraseña actual" : "Mostrar contraseña actual"}
+                >
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {/* New Password */}
             <div>
-              <label htmlFor="new-password" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="new-password"
+                className="text-sm font-medium text-foreground"
+              >
                 Nueva Contraseña
               </label>
-              <input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="••••••••"
-              />
+
+              <div className="mt-2 relative">
+                <input
+                  id="new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full pr-10 px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="••••••••"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  aria-label={showNewPassword ? "Ocultar nueva contraseña" : "Mostrar nueva contraseña"}
+                >
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {/* Confirm Password */}
@@ -287,17 +373,28 @@ export default function ConfiguracionView() {
               >
                 Confirmar Nueva Contraseña
               </label>
-              <input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="••••••••"
-              />
+
+              <div className="mt-2 relative">
+                <input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pr-10 px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="••••••••"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                  aria-label={showConfirmPassword ? "Ocultar confirmación" : "Mostrar confirmación"}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
-            {/* Error Message */}
             {passwordError && (
               <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
                 {passwordError}
